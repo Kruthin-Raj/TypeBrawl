@@ -21,7 +21,13 @@ export interface Player {
   isReady: boolean;
 }
 
-export type GameMode = 'word-blitz' | 'bomb-pass' | 'type-or-die';
+export type GameMode =
+  | 'word-blitz'
+  | 'bomb-pass'
+  | 'type-or-die'
+  | 'police-chase'
+  | 'laser-shooter'
+  | 'keydash-race';
 export type WordDifficulty = 'easy' | 'medium' | 'hard' | 'mixed' | 'gaming' | 'code';
 
 export interface RoomSettings {

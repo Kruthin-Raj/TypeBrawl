@@ -41,7 +41,7 @@ export const Navbar: React.FC = () => {
                 Type<span className="text-amber-400">Brawl</span>
               </span>
               <span className="text-[9px] font-mono font-black px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
-                4 GAMES
+                LIVE
               </span>
             </div>
             <span className="text-[10px] font-mono font-bold text-slate-400 -mt-1 tracking-wider uppercase">
@@ -50,7 +50,7 @@ export const Navbar: React.FC = () => {
           </div>
         </Link>
 
-        {/* Navigation Action Links (All 4 Games + Practice) */}
+        {/* Navigation Action Links (Arcade Games + Practice) */}
         <div className="flex items-center gap-2 sm:gap-2.5">
           <Link
             href="/play"

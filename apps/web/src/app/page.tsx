@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Navbar } from '@/components/Navbar';
 import { AvatarCustomizer } from '@/components/AvatarCustomizer';
-import { AvatarConfig } from '@typefest/shared';
+import { AvatarConfig, GameMode } from '@typefest/shared';
 import { getSocket } from '@/lib/socket';
 import { sound } from '@/lib/sound';
 import {
@@ -41,7 +41,7 @@ export default function LandingPage() {
   // Create room options
   const [timerSec, setTimerSec] = useState(8);
   const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard' | 'mixed' | 'gaming' | 'code'>('mixed');
-  const [gameMode, setGameMode] = useState<'word-blitz' | 'bomb-pass' | 'type-or-die'>('word-blitz');
+  const [gameMode, setGameMode] = useState<GameMode>('word-blitz');
   const [roomPassword, setRoomPassword] = useState('');
   const [isPublic, setIsPublic] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
@@ -103,16 +103,18 @@ export default function LandingPage() {
   };
 
   // Create Room
-  const handleCreateRoom = () => {
+  const handleCreateRoom = (modeOverride?: GameMode) => {
     sound.playGo();
     const socket = getSocket();
     setErrorMsg('');
+
+    const targetMode = modeOverride || gameMode;
 
     socket.emit(
       'room:create',
       {
         settings: {
-          mode: gameMode,
+          mode: targetMode,
           difficulty,
           timerSec,
           rounds: 10,
@@ -130,6 +132,11 @@ export default function LandingPage() {
         }
       }
     );
+  };
+
+  const openHostModalFor = (mode: GameMode) => {
+    setGameMode(mode);
+    setShowCreateModal(true);
   };
 
   // Join Room with Code
@@ -167,7 +174,7 @@ export default function LandingPage() {
         <div className="text-center mb-6">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-retro-card border-2 border-slate-900 shadow-retro-sm text-retro-accent text-xs font-mono font-bold uppercase tracking-wider mb-3">
             <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-            <span>4 ARCADE GAMES • NO LOGIN REQUIRED</span>
+            <span>RETRO MULTIPLAYER ARENA • NO LOGIN REQUIRED</span>
           </div>
 
           <h1 className="text-5xl sm:text-7xl font-mono font-black tracking-tight text-white drop-shadow-[3px_3px_0px_#000]">
@@ -175,7 +182,7 @@ export default function LandingPage() {
           </h1>
 
           <p className="text-xs sm:text-sm font-mono text-slate-400 font-bold mt-1 max-w-md mx-auto">
-            Choose your game mode: Escape the police chase, blast laser invaders, circuit race, or battle friends on the display board!
+            Choose your game mode: Escape the police chase, blast laser invaders, circuit race, or battle friends in multiplayer rooms!
           </p>
         </div>
 
@@ -185,7 +192,7 @@ export default function LandingPage() {
           </div>
         )}
 
-        {/* Central Stage: Avatar Customizer + 4 Games Selection Grid */}
+        {/* Central Stage: Avatar Customizer + Games Selection Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-3xl items-start">
           {/* Avatar Customizer */}
           <AvatarCustomizer
@@ -195,29 +202,30 @@ export default function LandingPage() {
             onAvatarChange={handleAvatarChange}
           />
 
-          {/* 4 Arcade Games Grid */}
-          <div className="flex flex-col gap-2.5 w-full max-w-sm mx-auto">
-            {/* Game 1: Multiplayer Display Board Arena (The Original) */}
-            <div className="p-3 bg-retro-card border-2 border-slate-900 rounded-xl shadow-retro">
+          {/* Arcade Games Grid (All with Solo & Room Creation!) */}
+          <div className="flex flex-col gap-3 w-full max-w-sm mx-auto">
+            
+            {/* Game 1: Display Board Arena */}
+            <div className="p-3 bg-retro-card border-2 border-slate-900 hover:border-amber-400/80 rounded-xl shadow-retro transition-all">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-mono font-black text-amber-300">
-                  1. DISPLAY BOARD ARENA
+                <span className="text-xs font-mono font-black text-amber-300 flex items-center gap-1.5">
+                  <span>⚔️</span> DISPLAY BOARD ARENA
                 </span>
-                <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-amber-400/20 text-amber-300 border border-amber-400/40">
+                <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-amber-400/20 text-amber-300 border border-amber-400/40">
                   MULTIPLAYER
                 </span>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <button
                   onClick={handleQuickPlay}
-                  className="py-2.5 px-3 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-mono font-black text-xs uppercase border-2 border-black shadow-retro-sm active:translate-x-[1px] active:translate-y-[1px] flex items-center justify-center gap-1.5"
+                  className="py-2 px-3 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-mono font-black text-xs uppercase border-2 border-black shadow-retro-sm active:translate-x-[1px] active:translate-y-[1px] flex items-center justify-center gap-1.5"
                 >
                   <Play className="w-3.5 h-3.5 fill-current" />
                   <span>QUICK PLAY</span>
                 </button>
                 <button
-                  onClick={() => setShowCreateModal(true)}
-                  className="py-2.5 px-3 rounded-lg bg-amber-400 hover:bg-amber-300 text-slate-950 font-mono font-black text-xs uppercase border-2 border-black shadow-retro-sm active:translate-x-[1px] active:translate-y-[1px] flex items-center justify-center gap-1.5"
+                  onClick={() => openHostModalFor('word-blitz')}
+                  className="py-2 px-3 rounded-lg bg-amber-400 hover:bg-amber-300 text-slate-950 font-mono font-black text-xs uppercase border-2 border-black shadow-retro-sm active:translate-x-[1px] active:translate-y-[1px] flex items-center justify-center gap-1.5"
                 >
                   <PlusCircle className="w-3.5 h-3.5" />
                   <span>HOST ROOM</span>
@@ -232,61 +240,97 @@ export default function LandingPage() {
             </div>
 
             {/* Game 2: Police Chase Escape */}
-            <button
-              onClick={() => router.push('/chase')}
-              className="flex items-center justify-between p-3.5 rounded-xl bg-slate-950 hover:bg-rose-950/40 text-left border-2 border-slate-900 hover:border-rose-500/80 shadow-retro active:translate-x-[1px] active:translate-y-[1px] transition-all group"
-            >
-              <div className="flex items-center gap-3">
-                <span className="text-2xl group-hover:scale-110 transition-transform">🚨</span>
-                <div>
-                  <span className="text-xs font-mono font-black text-rose-400 block">
-                    2. POLICE CHASE ESCAPE
-                  </span>
-                  <span className="text-[10px] font-mono text-slate-400 block">
-                    Type to accelerate and outrun pursuing cruisers
-                  </span>
-                </div>
+            <div className="p-3 bg-retro-card border-2 border-slate-900 hover:border-rose-500/80 rounded-xl shadow-retro transition-all">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-mono font-black text-rose-400 flex items-center gap-1.5">
+                  <span>🚨</span> POLICE PURSUIT ESCAPE
+                </span>
+                <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-400 border border-rose-500/40">
+                  SOLO & CO-OP
+                </span>
               </div>
-              <span className="text-xs font-mono font-bold text-rose-400">PLAY ▶</span>
-            </button>
+              <p className="text-[10px] font-mono text-slate-400 mb-2">
+                Outrun police cruisers with red proximity sirens & speed bursts
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => router.push('/chase')}
+                  className="py-2 px-3 rounded-lg bg-slate-900 hover:bg-slate-800 text-rose-300 font-mono font-bold text-xs uppercase border border-rose-900/60 shadow-retro-sm flex items-center justify-center gap-1.5"
+                >
+                  <Play className="w-3.5 h-3.5 fill-current" />
+                  <span>PLAY SOLO</span>
+                </button>
+                <button
+                  onClick={() => openHostModalFor('police-chase')}
+                  className="py-2 px-3 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-mono font-black text-xs uppercase border-2 border-black shadow-retro-sm flex items-center justify-center gap-1.5"
+                >
+                  <PlusCircle className="w-3.5 h-3.5" />
+                  <span>HOST ROOM</span>
+                </button>
+              </div>
+            </div>
 
             {/* Game 3: Laser Type Shooter */}
-            <button
-              onClick={() => router.push('/shooter')}
-              className="flex items-center justify-between p-3.5 rounded-xl bg-slate-950 hover:bg-cyan-950/40 text-left border-2 border-slate-900 hover:border-cyan-500/80 shadow-retro active:translate-x-[1px] active:translate-y-[1px] transition-all group"
-            >
-              <div className="flex items-center gap-3">
-                <span className="text-2xl group-hover:scale-110 transition-transform">🚀</span>
-                <div>
-                  <span className="text-xs font-mono font-black text-cyan-400 block">
-                    3. LASER TYPE SHOOTER
-                  </span>
-                  <span className="text-[10px] font-mono text-slate-400 block">
-                    Lock on and vaporize descending space invaders
-                  </span>
-                </div>
+            <div className="p-3 bg-retro-card border-2 border-slate-900 hover:border-cyan-500/80 rounded-xl shadow-retro transition-all">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-mono font-black text-cyan-400 flex items-center gap-1.5">
+                  <span>🚀</span> LASER TYPE SHOOTER
+                </span>
+                <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-400 border border-cyan-500/40">
+                  SOLO & CO-OP
+                </span>
               </div>
-              <span className="text-xs font-mono font-bold text-cyan-400">PLAY ▶</span>
-            </button>
+              <p className="text-[10px] font-mono text-slate-400 mb-2">
+                Fire laser torpedoes and blast alien dreadnoughts with sized explosions
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => router.push('/shooter')}
+                  className="py-2 px-3 rounded-lg bg-slate-900 hover:bg-slate-800 text-cyan-300 font-mono font-bold text-xs uppercase border border-cyan-900/60 shadow-retro-sm flex items-center justify-center gap-1.5"
+                >
+                  <Play className="w-3.5 h-3.5 fill-current" />
+                  <span>PLAY SOLO</span>
+                </button>
+                <button
+                  onClick={() => openHostModalFor('laser-shooter')}
+                  className="py-2 px-3 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-mono font-black text-xs uppercase border-2 border-black shadow-retro-sm flex items-center justify-center gap-1.5"
+                >
+                  <PlusCircle className="w-3.5 h-3.5" />
+                  <span>HOST ROOM</span>
+                </button>
+              </div>
+            </div>
 
             {/* Game 4: KeyDash Arcade Racer */}
-            <button
-              onClick={() => router.push('/keydash')}
-              className="flex items-center justify-between p-3.5 rounded-xl bg-slate-950 hover:bg-amber-950/40 text-left border-2 border-slate-900 hover:border-amber-500/80 shadow-retro active:translate-x-[1px] active:translate-y-[1px] transition-all group"
-            >
-              <div className="flex items-center gap-3">
-                <span className="text-2xl group-hover:scale-110 transition-transform">🏎️</span>
-                <div>
-                  <span className="text-xs font-mono font-black text-amber-300 block">
-                    4. KEYDASH ARCADE RACER
-                  </span>
-                  <span className="text-[10px] font-mono text-slate-400 block">
-                    Circuit speedway race with Nitro streaks
-                  </span>
-                </div>
+            <div className="p-3 bg-retro-card border-2 border-slate-900 hover:border-amber-500/80 rounded-xl shadow-retro transition-all">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-mono font-black text-amber-300 flex items-center gap-1.5">
+                  <span>🏎️</span> KEYDASH ARCADE RACER
+                </span>
+                <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-amber-400/20 text-amber-300 border border-amber-400/40">
+                  SPEEDWAY
+                </span>
               </div>
-              <span className="text-xs font-mono font-bold text-amber-400">PLAY ▶</span>
-            </button>
+              <p className="text-[10px] font-mono text-slate-400 mb-2">
+                Circuit speedway race with Nitro streaks and finish line podiums
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => router.push('/keydash')}
+                  className="py-2 px-3 rounded-lg bg-slate-900 hover:bg-slate-800 text-amber-300 font-mono font-bold text-xs uppercase border border-amber-900/60 shadow-retro-sm flex items-center justify-center gap-1.5"
+                >
+                  <Play className="w-3.5 h-3.5 fill-current" />
+                  <span>PLAY SOLO</span>
+                </button>
+                <button
+                  onClick={() => openHostModalFor('keydash-race')}
+                  className="py-2 px-3 rounded-lg bg-amber-400 hover:bg-amber-300 text-slate-950 font-mono font-black text-xs uppercase border-2 border-black shadow-retro-sm flex items-center justify-center gap-1.5"
+                >
+                  <PlusCircle className="w-3.5 h-3.5" />
+                  <span>HOST ROOM</span>
+                </button>
+              </div>
+            </div>
 
             {/* Training Grounds link */}
             <button
@@ -300,29 +344,43 @@ export default function LandingPage() {
         </div>
       </main>
 
-      {/* CREATE ROOM MODAL */}
+      {/* CREATE ROOM MODAL (Support for all game modes!) */}
       {showCreateModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-retro-card border-4 border-slate-900 rounded-2xl p-6 max-w-md w-full shadow-retro">
+          <div className="bg-retro-card border-4 border-slate-900 rounded-2xl p-6 max-w-lg w-full shadow-retro">
             <h3 className="text-xl font-mono font-black text-amber-300 uppercase tracking-wider mb-4 text-center">
-              ROOM CONFIGURATION
+              HOST MULTIPLAYER ROOM
             </h3>
 
             <div className="flex flex-col gap-3.5 text-xs font-mono font-bold">
+              {/* Game Mode Selector for ALL games! */}
               <div>
-                <label className="text-slate-400 block mb-1">GAME MODE</label>
-                <div className="grid grid-cols-3 gap-2">
-                  {(['word-blitz', 'bomb-pass', 'type-or-die'] as const).map((m) => (
+                <label className="text-slate-400 block mb-1.5">SELECT GAME MODE</label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {[
+                    { id: 'word-blitz', label: 'Word Blitz', icon: '⚔️', desc: 'Display Board' },
+                    { id: 'bomb-pass', label: 'Bomb Pass', icon: '💣', desc: 'Turn Potato' },
+                    { id: 'type-or-die', label: 'Type or Die', icon: '🌋', desc: 'Elimination' },
+                    { id: 'police-chase', label: 'Police Chase', icon: '🚨', desc: 'Hot Pursuit' },
+                    { id: 'laser-shooter', label: 'Laser Shooter', icon: '🚀', desc: 'Space Turret' },
+                    { id: 'keydash-race', label: 'KeyDash Racer', icon: '🏎️', desc: 'Track Sprint' }
+                  ].map((m) => (
                     <button
-                      key={m}
-                      onClick={() => setGameMode(m)}
-                      className={`p-2 rounded-lg border-2 text-center transition-all ${
-                        gameMode === m
+                      key={m.id}
+                      onClick={() => setGameMode(m.id as GameMode)}
+                      className={`p-2.5 rounded-xl border-2 text-left transition-all ${
+                        gameMode === m.id
                           ? 'bg-amber-400 text-slate-950 border-black shadow-retro-sm font-black'
-                          : 'bg-slate-950 text-slate-300 border-slate-900'
+                          : 'bg-slate-950 text-slate-300 border-slate-900 hover:border-slate-700'
                       }`}
                     >
-                      {m === 'word-blitz' ? 'Blitz Race' : m === 'bomb-pass' ? 'Bomb Pass' : 'Elimination'}
+                      <div className="flex items-center gap-1.5">
+                        <span>{m.icon}</span>
+                        <span className="truncate">{m.label}</span>
+                      </div>
+                      <span className={`text-[9px] block mt-0.5 ${gameMode === m.id ? 'text-slate-800' : 'text-slate-500'}`}>
+                        {m.desc}
+                      </span>
                     </button>
                   ))}
                 </div>
@@ -393,7 +451,7 @@ export default function LandingPage() {
                 }}
                 className="flex-1 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-mono font-black text-xs uppercase border-2 border-black shadow-retro-sm active:translate-x-[1px] active:translate-y-[1px]"
               >
-                START ARENA
+                CREATE ROOM
               </button>
             </div>
           </div>
