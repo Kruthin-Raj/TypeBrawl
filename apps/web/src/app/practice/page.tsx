@@ -1,8 +1,10 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import Link from 'next/link';
 import { Navbar } from '@/components/Navbar';
 import { VirtualKeyboard } from '@/components/VirtualKeyboard';
+import { GameControlsModal } from '@/components/GameControlsModal';
 import {
   PRACTICE_LESSONS,
   PRACTICE_PARAGRAPHS,
@@ -25,7 +27,12 @@ import {
   RefreshCw,
   Trophy,
   Coffee,
-  Edit3
+  Edit3,
+  Pause,
+  Play,
+  Sliders,
+  Volume2,
+  VolumeX
 } from 'lucide-react';
 
 type PracticeMode =
@@ -41,6 +48,11 @@ type PracticeMode =
 export default function PracticePage() {
   const [mode, setMode] = useState<PracticeMode>('lessons');
   const [selectedLessonId, setSelectedLessonId] = useState(PRACTICE_LESSONS[0].id);
+
+  // Pause & Controls
+  const [isPaused, setIsPaused] = useState(false);
+  const [isControlsModalOpen, setIsControlsModalOpen] = useState(false);
+  const [soundOn, setSoundOn] = useState(true);
 
   // Sub-settings
   const [timedDuration, setTimedDuration] = useState<number>(30); // 15, 30, 60, 120
@@ -63,6 +75,12 @@ export default function PracticePage() {
   const hiddenInputRef = useRef<HTMLInputElement>(null);
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setSoundOn(sound.isEnabled());
+    }
+  }, []);
+
   // Generate words helper
   const getRandomWordList = (count: number) => {
     const pool = [...EASY_WORDS, ...MEDIUM_WORDS, ...HARD_WORDS, ...GAMING_WORDS];
@@ -83,13 +101,14 @@ export default function PracticePage() {
     setErrors(0);
     setIsFinished(false);
     setIsErrorKey(false);
+    setIsPaused(false);
     setTimeRemaining(timeLimitSec);
     setTimeout(() => hiddenInputRef.current?.focus(), 50);
   };
 
   // Timed Countdown loop
   useEffect(() => {
-    if (mode === 'timed' && startTime && timeRemaining !== null && !isFinished) {
+    if (mode === 'timed' && startTime && timeRemaining !== null && !isFinished && !isPaused) {
       timerIntervalRef.current = setInterval(() => {
         setTimeRemaining((prev) => {
           if (prev === null || prev <= 1) {
@@ -106,7 +125,7 @@ export default function PracticePage() {
     return () => {
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
     };
-  }, [mode, startTime, isFinished, timeRemaining]);
+  }, [mode, startTime, isFinished, timeRemaining, isPaused]);
 
   // Mode Pickers
   const pickLessonsMode = (lessonId: string) => {
@@ -162,7 +181,13 @@ export default function PracticePage() {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (isFinished) return;
+    if (e.key === 'Escape') {
+      setIsPaused(!isPaused);
+      setIsControlsModalOpen(!isPaused);
+      return;
+    }
+
+    if (isFinished || isPaused) return;
     sound.playKeyClick();
 
     if (e.key === 'Backspace') return;
@@ -184,7 +209,7 @@ export default function PracticePage() {
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (isFinished) return;
+    if (isFinished || isPaused) return;
     const val = e.target.value;
 
     if (val.length > targetText.length) return;
@@ -216,7 +241,7 @@ export default function PracticePage() {
       <Navbar />
 
       <main className="flex-1 max-w-5xl w-full mx-auto p-4 sm:p-6 flex flex-col gap-5">
-        {/* Codédex Retro HUD Header */}
+        {/* Retro HUD Header */}
         <div className="flex flex-wrap items-center justify-between gap-4 bg-retro-card border-2 border-slate-900 rounded-2xl p-4 shadow-retro">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-amber-400 border-2 border-black flex items-center justify-center text-slate-950 font-black text-xl shadow-retro-sm">
@@ -237,8 +262,55 @@ export default function PracticePage() {
             </div>
           </div>
 
-          {/* Mode Switcher Pills */}
-          <div className="flex flex-wrap gap-1.5 bg-slate-950 p-1.5 rounded-xl border-2 border-slate-900 text-xs font-mono font-bold">
+          {/* Action Controls: Sound + Pause + Options + Exit */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                const next = sound.toggle();
+                setSoundOn(next);
+              }}
+              title={soundOn ? 'Sound On' : 'Sound Muted'}
+              className="p-2 rounded-xl bg-slate-950 border-2 border-slate-900 text-slate-300 hover:text-white shadow-retro-sm transition-all"
+            >
+              {soundOn ? <Volume2 className="w-4 h-4 text-amber-400" /> : <VolumeX className="w-4 h-4 text-slate-600" />}
+            </button>
+
+            <button
+              onClick={() => {
+                setIsPaused(!isPaused);
+                setIsControlsModalOpen(!isPaused);
+              }}
+              title="Pause Drill (Esc)"
+              className="p-2 rounded-xl bg-slate-950 border-2 border-slate-900 text-slate-300 hover:text-white shadow-retro-sm transition-all"
+            >
+              {isPaused ? <Play className="w-4 h-4 text-emerald-400 fill-current" /> : <Pause className="w-4 h-4 text-amber-400 fill-current" />}
+            </button>
+
+            <button
+              onClick={() => {
+                setIsPaused(true);
+                setIsControlsModalOpen(true);
+              }}
+              title="Options & Audio"
+              className="p-2 rounded-xl bg-slate-950 border-2 border-slate-900 text-slate-300 hover:text-white shadow-retro-sm transition-all"
+            >
+              <Sliders className="w-4 h-4" />
+            </button>
+
+            <button
+              onClick={() => {
+                setIsPaused(true);
+                setIsControlsModalOpen(true);
+              }}
+              className="px-3 py-1.5 rounded-xl border-2 border-rose-900 bg-rose-950/30 hover:bg-rose-900/50 text-rose-400 font-mono font-bold text-xs uppercase tracking-wider transition-all"
+            >
+              EXIT
+            </button>
+          </div>
+        </div>
+
+        {/* Mode Switcher Pills */}
+        <div className="flex flex-wrap gap-1.5 bg-slate-950 p-2 rounded-xl border-2 border-slate-900 text-xs font-mono font-bold">
             <button
               onClick={() => pickLessonsMode(selectedLessonId)}
               className={`px-3 py-1.5 rounded-lg transition-all ${
@@ -304,7 +376,6 @@ export default function PracticePage() {
               Custom
             </button>
           </div>
-        </div>
 
         {/* Dynamic Mode Sub-Options Bar */}
         <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs font-mono">
@@ -384,7 +455,7 @@ export default function PracticePage() {
           )}
         </div>
 
-        {/* Codédex Retro HUD Stats */}
+        {/* Practice HUD Stats */}
         <div className="grid grid-cols-4 gap-3 bg-retro-card border-2 border-slate-900 rounded-xl p-3.5 text-center shadow-retro">
           <div className="border-r border-slate-800">
             <span className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider block">
@@ -429,7 +500,7 @@ export default function PracticePage() {
           </div>
         </div>
 
-        {/* Codédex Retro CRT Canvas */}
+        {/* Retro CRT Canvas */}
         <div
           onClick={() => hiddenInputRef.current?.focus()}
           className="relative bg-slate-950 border-4 border-slate-900 focus-within:border-amber-400 rounded-2xl p-6 sm:p-8 shadow-retro-lg cursor-text min-h-[180px] flex items-center justify-center select-none"
@@ -535,6 +606,18 @@ export default function PracticePage() {
           </div>
         </div>
       )}
+      {/* Unified In-Game Pause, Exit & Options Modal */}
+      <GameControlsModal
+        isOpen={isControlsModalOpen}
+        onClose={() => {
+          setIsControlsModalOpen(false);
+          setIsPaused(false);
+          setTimeout(() => hiddenInputRef.current?.focus(), 50);
+        }}
+        onRestart={() => startTest(targetText, mode === 'timed' ? timedDuration : null)}
+        gameTitle="Typing Training Grounds"
+        gameModeBadge="PRACTICE"
+      />
     </div>
   );
 }

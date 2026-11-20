@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { Navbar } from '@/components/Navbar';
 import { DisplayBoard } from '@/components/DisplayBoard';
@@ -173,6 +174,14 @@ export default function PlayRoomPage() {
             <span className="bg-slate-950 px-2.5 py-1 rounded border border-slate-800 uppercase">
               {room.settings.difficulty}
             </span>
+
+            {/* Leave Room Button */}
+            <Link
+              href="/"
+              className="px-3 py-1 rounded-lg bg-rose-950/40 hover:bg-rose-900/60 text-rose-400 border border-rose-900 shadow-retro-sm transition-all"
+            >
+              EXIT
+            </Link>
           </div>
         </div>
 

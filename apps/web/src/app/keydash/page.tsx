@@ -1,11 +1,13 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import Link from 'next/link';
 import { Navbar } from '@/components/Navbar';
 import { Avatar } from '@/components/Avatar';
 import { AvatarConfig, EASY_WORDS, MEDIUM_WORDS, HARD_WORDS, GAMING_WORDS } from '@typefest/shared';
 import { sound } from '@/lib/sound';
 import confetti from 'canvas-confetti';
+import { GameControlsModal } from '@/components/GameControlsModal';
 import {
   Zap,
   Flag,
@@ -15,7 +17,12 @@ import {
   Award,
   Swords,
   ChevronRight,
-  ShieldAlert
+  ShieldAlert,
+  Pause,
+  Play,
+  Sliders,
+  Volume2,
+  VolumeX
 } from 'lucide-react';
 
 interface BotRacer {
@@ -50,6 +57,9 @@ const BOT_CONFIGS = [
 export default function KeyDashPage() {
   const [difficulty, setDifficulty] = useState<'novice' | 'pro' | 'master'>('pro');
   const [gameState, setGameState] = useState<'ready' | 'racing' | 'finished'>('ready');
+  const [isPaused, setIsPaused] = useState(false);
+  const [isControlsModalOpen, setIsControlsModalOpen] = useState(false);
+  const [soundOn, setSoundOn] = useState(true);
 
   // Player info
   const [playerAvatar, setPlayerAvatar] = useState<AvatarConfig>({
@@ -90,6 +100,7 @@ export default function KeyDashPage() {
         if (parsed.nickname) setPlayerName(parsed.nickname);
       } catch {}
     }
+    setSoundOn(sound.isEnabled());
   }, []);
 
   // Initialize a new race
@@ -109,6 +120,7 @@ export default function KeyDashPage() {
     setPlayerWpm(0);
     setStartTime(null);
     setGameState('ready');
+    setIsPaused(false);
 
     // Bot speed adjustment
     const speedMult = difficulty === 'novice' ? 0.7 : difficulty === 'pro' ? 1.0 : 1.35;
@@ -132,13 +144,14 @@ export default function KeyDashPage() {
   const startRace = () => {
     sound.playGo();
     setGameState('racing');
+    setIsPaused(false);
     setStartTime(Date.now());
     setTimeout(() => inputRef.current?.focus(), 50);
   };
 
   // Bot simulation loop during active race
   useEffect(() => {
-    if (gameState !== 'racing' || !startTime) return;
+    if (gameState !== 'racing' || !startTime || isPaused) return;
 
     loopRef.current = setInterval(() => {
       const elapsedSec = (Date.now() - startTime) / 1000;
@@ -146,7 +159,6 @@ export default function KeyDashPage() {
 
       setBots((prevBots) =>
         prevBots.map((bot) => {
-          // Words bot has completed based on its WPM
           const wordsCompleted = (bot.wpm / 60) * elapsedSec;
           const progress = Math.min(100, Math.round((wordsCompleted / totalWords) * 100));
           return { ...bot, progressPercent: progress };
@@ -157,17 +169,24 @@ export default function KeyDashPage() {
     return () => {
       if (loopRef.current) clearInterval(loopRef.current);
     };
-  }, [gameState, startTime, wordsList.length]);
+  }, [gameState, startTime, wordsList.length, isPaused]);
+
+  // Keyboard shortcut listener (ESC to Pause)
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Escape') {
+      setIsPaused(!isPaused);
+      setIsControlsModalOpen(!isPaused);
+    }
+  };
 
   // Handle typing input
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (gameState !== 'racing') return;
+    if (gameState !== 'racing' || isPaused) return;
     const val = e.target.value;
     const targetWord = wordsList[currentWordIdx];
 
     sound.playKeyClick();
 
-    // Check if player completed the current word (typed word + space or exact match on last word)
     if (val.endsWith(' ') || currentWordIdx === wordsList.length - 1) {
       const cleanVal = val.trim().toLowerCase();
 
@@ -219,7 +238,6 @@ export default function KeyDashPage() {
     setGameState('finished');
     sound.playCorrect();
 
-    // Calculate place (1st, 2nd, etc.)
     const botProgresses = bots.map((b) => b.progressPercent);
     const botsAhead = botProgresses.filter((p) => p >= 100).length;
     const rank = botsAhead + 1;
@@ -260,25 +278,76 @@ export default function KeyDashPage() {
             </div>
           </div>
 
-          {/* Difficulty Selection */}
-          <div className="flex items-center gap-1.5 bg-slate-950 p-1.5 rounded-xl border-2 border-slate-900 text-xs font-mono font-bold">
-            {(['novice', 'pro', 'master'] as const).map((diff) => (
+          {/* Controls: Difficulty + Sound + Pause + Options + Exit */}
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border-2 border-slate-900 text-xs font-mono font-bold">
+              {(['novice', 'pro', 'master'] as const).map((diff) => (
+                <button
+                  key={diff}
+                  onClick={() => {
+                    setDifficulty(diff);
+                    initRace();
+                  }}
+                  disabled={gameState === 'racing'}
+                  className={`px-3 py-1 rounded-lg uppercase tracking-wider transition-all ${
+                    difficulty === diff
+                      ? 'bg-amber-400 text-slate-950 font-black shadow-retro-sm'
+                      : 'text-slate-400 hover:text-white disabled:opacity-40'
+                  }`}
+                >
+                  {diff}
+                </button>
+              ))}
+            </div>
+
+            {/* Sound Toggle */}
+            <button
+              onClick={() => {
+                const next = sound.toggle();
+                setSoundOn(next);
+              }}
+              title={soundOn ? 'Sound On' : 'Sound Muted'}
+              className="p-2 rounded-xl bg-slate-950 border-2 border-slate-900 text-slate-300 hover:text-white shadow-retro-sm transition-all"
+            >
+              {soundOn ? <Volume2 className="w-4 h-4 text-amber-400" /> : <VolumeX className="w-4 h-4 text-slate-600" />}
+            </button>
+
+            {/* Pause Button */}
+            {gameState === 'racing' && (
               <button
-                key={diff}
                 onClick={() => {
-                  setDifficulty(diff);
-                  initRace();
+                  setIsPaused(!isPaused);
+                  setIsControlsModalOpen(!isPaused);
                 }}
-                disabled={gameState === 'racing'}
-                className={`px-3 py-1.5 rounded-lg uppercase tracking-wider transition-all ${
-                  difficulty === diff
-                    ? 'bg-amber-400 text-slate-950 font-black shadow-retro-sm'
-                    : 'text-slate-400 hover:text-white disabled:opacity-40'
-                }`}
+                title="Pause Game (Esc)"
+                className="p-2 rounded-xl bg-slate-950 border-2 border-slate-900 text-slate-300 hover:text-white shadow-retro-sm transition-all"
               >
-                {diff}
+                {isPaused ? <Play className="w-4 h-4 text-emerald-400 fill-current" /> : <Pause className="w-4 h-4 text-amber-400 fill-current" />}
               </button>
-            ))}
+            )}
+
+            {/* Options Button */}
+            <button
+              onClick={() => {
+                setIsPaused(true);
+                setIsControlsModalOpen(true);
+              }}
+              title="Options & Audio"
+              className="p-2 rounded-xl bg-slate-950 border-2 border-slate-900 text-slate-300 hover:text-white shadow-retro-sm transition-all"
+            >
+              <Sliders className="w-4 h-4" />
+            </button>
+
+            {/* Exit Button */}
+            <button
+              onClick={() => {
+                setIsPaused(true);
+                setIsControlsModalOpen(true);
+              }}
+              className="px-3 py-1.5 rounded-xl border-2 border-rose-900 bg-rose-950/30 hover:bg-rose-900/50 text-rose-400 font-mono font-bold text-xs uppercase tracking-wider transition-all"
+            >
+              EXIT
+            </button>
           </div>
         </div>
 
@@ -418,8 +487,10 @@ export default function KeyDashPage() {
                   type="text"
                   value={inputVal}
                   onChange={handleInputChange}
-                  placeholder="Type the word and press SPACE..."
-                  className="w-full py-3.5 px-5 bg-slate-950 border-2 border-slate-900 focus:border-amber-400 rounded-xl font-mono font-bold text-lg text-white focus:outline-none shadow-retro-sm text-center"
+                  onKeyDown={handleKeyDown}
+                  placeholder={isPaused ? 'Game Paused (Press Esc to resume)' : 'Type the word and press SPACE...'}
+                  disabled={isPaused}
+                  className="w-full py-3.5 px-5 bg-slate-950 border-2 border-slate-900 focus:border-amber-400 rounded-xl font-mono font-bold text-lg text-white focus:outline-none shadow-retro-sm text-center disabled:opacity-50"
                 />
               </div>
             </div>
@@ -437,16 +508,37 @@ export default function KeyDashPage() {
                 Average Speed: <span className="text-amber-400 font-bold">{playerWpm} WPM</span> • Max Streak:{' '}
                 <span className="text-emerald-400 font-bold">{maxStreak}</span>
               </p>
-              <button
-                onClick={initRace}
-                className="flex items-center gap-2 px-8 py-3 rounded-xl font-mono font-black bg-amber-400 hover:bg-amber-300 text-slate-950 border-2 border-black shadow-retro text-xs uppercase tracking-wider active:translate-x-[2px] active:translate-y-[2px]"
-              >
-                <RotateCcw className="w-4 h-4" /> RACE AGAIN
-              </button>
+              <div className="flex items-center gap-3">
+                <Link
+                  href="/"
+                  className="px-6 py-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 font-mono font-bold text-xs border border-slate-800 transition-all"
+                >
+                  Main Menu
+                </Link>
+                <button
+                  onClick={initRace}
+                  className="flex items-center gap-2 px-8 py-3 rounded-xl font-mono font-black bg-amber-400 hover:bg-amber-300 text-slate-950 border-2 border-black shadow-retro text-xs uppercase tracking-wider active:translate-x-[2px] active:translate-y-[2px]"
+                >
+                  <RotateCcw className="w-4 h-4" /> RACE AGAIN
+                </button>
+              </div>
             </div>
           )}
         </div>
       </main>
+
+      {/* Unified In-Game Pause, Exit & Options Modal */}
+      <GameControlsModal
+        isOpen={isControlsModalOpen}
+        onClose={() => {
+          setIsControlsModalOpen(false);
+          setIsPaused(false);
+          setTimeout(() => inputRef.current?.focus(), 50);
+        }}
+        onRestart={initRace}
+        gameTitle="KeyDash Arcade Racer"
+        gameModeBadge="ARCADE RACER"
+      />
     </div>
   );
 }
