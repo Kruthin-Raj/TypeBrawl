@@ -10,7 +10,7 @@ import { RoomManager } from './rooms/RoomManager.js';
 
 const app = express();
 app.use(cors({ origin: '*' }));
-app.use(express.json());
+app.use(express.json({ limit: '100kb' }));
 
 const httpServer = createServer(app);
 
@@ -18,7 +18,36 @@ const io = new Server<ClientToServerEvents, ServerToClientEvents>(httpServer, {
   cors: {
     origin: '*',
     methods: ['GET', 'POST']
+  },
+  maxHttpBufferSize: 1e5 // 100 KB payload cap to prevent buffer exhaustion DDoS
+});
+
+// IP connection limiter (prevents single-machine socket flooding DDoS)
+const ipConnectionCount = new Map<string, number>();
+const MAX_CONNECTIONS_PER_IP = 12;
+
+io.use((socket, next) => {
+  const forwarded = socket.handshake.headers['x-forwarded-for'];
+  const ip = typeof forwarded === 'string'
+    ? forwarded.split(',')[0].trim()
+    : socket.handshake.address;
+
+  const current = ipConnectionCount.get(ip) || 0;
+  if (current >= MAX_CONNECTIONS_PER_IP) {
+    return next(new Error('Connection limit exceeded for this IP. Please slow down.'));
   }
+
+  ipConnectionCount.set(ip, current + 1);
+  socket.on('disconnect', () => {
+    const count = ipConnectionCount.get(ip) || 1;
+    if (count <= 1) {
+      ipConnectionCount.delete(ip);
+    } else {
+      ipConnectionCount.set(ip, count - 1);
+    }
+  });
+
+  next();
 });
 
 const roomManager = new RoomManager(io);
@@ -110,9 +139,16 @@ io.on('connection', (socket) => {
     callback(res);
   });
 
-  // Chat message
+  // Chat message (rate-limited and capped to 150 characters to prevent spam/buffer abuse)
+  let lastChatTime = 0;
   socket.on('chat:send', (text) => {
-    roomManager.sendChat(socket.id, text);
+    const now = Date.now();
+    if (now - lastChatTime < 350) return; // Drop messages sent faster than 350ms
+    lastChatTime = now;
+    const cleanText = typeof text === 'string' ? text.trim().slice(0, 150) : '';
+    if (cleanText) {
+      roomManager.sendChat(socket.id, cleanText);
+    }
   });
 
   // Disconnect
