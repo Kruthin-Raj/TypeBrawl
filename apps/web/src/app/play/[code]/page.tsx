@@ -31,60 +31,42 @@ import {
 
 const getGameModeMeta = (mode: string) => {
   switch (mode) {
-    case 'police-chase':
-      return {
-        title: 'POLICE PURSUIT ESCAPE',
-        icon: '🚨',
-        tag: 'HOT PURSUIT',
-        color: 'text-rose-400',
-        badgeBg: 'bg-rose-500/20 text-rose-400 border-rose-500/40',
-        desc: 'Escape the police cruiser together! Type the words fastest to widen your lead and outrun the cops.'
-      };
-    case 'laser-shooter':
-      return {
-        title: 'LASER TYPE SHOOTER',
-        icon: '🚀',
-        tag: 'SPACE TURRET DEFENSE',
-        color: 'text-cyan-400',
-        badgeBg: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/40',
-        desc: 'Lock on and vaporize descending alien invaders! Compete for the high score sector crown.'
-      };
     case 'keydash-race':
       return {
-        title: 'KEYDASH ARCADE RACER',
+        title: 'KEYDASH RACING ARENA',
         icon: '🏎️',
         tag: 'SPEEDWAY SPRINT',
         color: 'text-amber-300',
         badgeBg: 'bg-amber-400/20 text-amber-300 border-amber-400/40',
-        desc: 'Multiplayer speedway race! Type words to burst ahead with nitro across the lanes.'
+        desc: 'Multiplayer speedway race! Type words with high speed to surge ahead with nitro bursts across the lanes and take the checkered flag!'
       };
     case 'bomb-pass':
       return {
-        title: 'BOMB PASS ARENA',
+        title: 'HOT POTATO ARENA',
         icon: '💣',
-        tag: 'HOT POTATO',
-        color: 'text-amber-400',
-        badgeBg: 'bg-amber-400/20 text-amber-400 border-amber-400/40',
-        desc: 'Type before the bomb explodes! Pass the blast to the next player.'
+        tag: 'BOMB PASS',
+        color: 'text-rose-400',
+        badgeBg: 'bg-rose-500/20 text-rose-400 border-rose-500/40',
+        desc: 'The ticking bomb is passed from player to player! Type your word and press Enter before detonation to survive.'
       };
     case 'type-or-die':
       return {
         title: 'TYPE OR DIE ARENA',
         icon: '🌋',
-        tag: 'ELIMINATION',
-        color: 'text-rose-400',
-        badgeBg: 'bg-rose-500/20 text-rose-400 border-rose-500/40',
-        desc: 'Survive rising lava! Slow typists lose lives and get eliminated.'
+        tag: 'LAVA SURVIVAL',
+        color: 'text-orange-400',
+        badgeBg: 'bg-orange-500/20 text-orange-400 border-orange-500/40',
+        desc: 'Survive the rising lava! Slow typists lose hearts each round until only the ultimate survivor remains.'
       };
     case 'word-blitz':
     default:
       return {
-        title: 'DISPLAY BOARD ARENA',
-        icon: '⚔️',
+        title: 'FASTEST WORD CHALLENGE',
+        icon: '⚡',
         tag: 'WORD BLITZ',
-        color: 'text-amber-400',
-        badgeBg: 'bg-amber-400/20 text-amber-400 border-amber-400/40',
-        desc: 'The classic typing showdown! Central display board word race with speed streaks.'
+        color: 'text-cyan-400',
+        badgeBg: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/40',
+        desc: 'The ultimate typing showdown! Central display board word race with speed streaks and instant points multipliers!'
       };
   }
 };
@@ -149,6 +131,7 @@ export default function PlayRoomPage() {
     });
 
     return () => {
+      socket.emit('room:leave');
       socket.off('room:state');
       socket.off('chat:message');
       socket.off('game:countdown');
@@ -156,6 +139,12 @@ export default function PlayRoomPage() {
       socket.off('game:word_solved');
     };
   }, [roomCode, router]);
+
+  const handleExitRoom = () => {
+    const socket = getSocket();
+    socket.emit('room:leave');
+    router.push('/');
+  };
 
   const copyInviteLink = () => {
     if (typeof window !== 'undefined') {
@@ -243,12 +232,12 @@ export default function PlayRoomPage() {
             </span>
 
             {/* Leave Room Button */}
-            <Link
-              href="/"
+            <button
+              onClick={handleExitRoom}
               className="px-3 py-1.5 rounded-lg bg-rose-950/40 hover:bg-rose-900/60 text-rose-400 border border-rose-900 shadow-retro-sm transition-all"
             >
               EXIT
-            </Link>
+            </button>
           </div>
         </div>
 
@@ -282,15 +271,28 @@ export default function PlayRoomPage() {
               ))}
             </div>
 
-            {/* Host Start Game Action */}
+            {/* Host Start Game & Bot Actions */}
             {isHost ? (
-              <button
-                onClick={handleStartGame}
-                className="flex items-center gap-2.5 px-8 py-3.5 rounded-xl font-mono font-black text-base uppercase tracking-wider bg-emerald-500 hover:bg-emerald-400 text-slate-950 border-2 border-black shadow-retro active:translate-x-[2px] active:translate-y-[2px] transition-all"
-              >
-                <Play className="w-5 h-5 fill-current" />
-                START {modeMeta.tag}!
-              </button>
+              <div className="flex flex-wrap items-center justify-center gap-3">
+                <button
+                  onClick={handleStartGame}
+                  className="flex items-center gap-2.5 px-8 py-3.5 rounded-xl font-mono font-black text-base uppercase tracking-wider bg-emerald-500 hover:bg-emerald-400 text-slate-950 border-2 border-black shadow-retro active:translate-x-[2px] active:translate-y-[2px] transition-all"
+                >
+                  <Play className="w-5 h-5 fill-current" />
+                  START {modeMeta.tag}!
+                </button>
+                <button
+                  onClick={() => {
+                    const socket = getSocket();
+                    socket.emit('room:toggle_bots');
+                  }}
+                  className="flex items-center gap-1.5 px-4 py-3.5 rounded-xl font-mono font-black text-xs uppercase tracking-wider bg-slate-900 hover:bg-slate-800 text-purple-300 border-2 border-purple-900/60 shadow-retro-sm active:translate-x-[1px] active:translate-y-[1px] transition-all"
+                  title="Toggle 4 automated AI bot opponents"
+                >
+                  <span>🤖</span>
+                  <span>{playersList.some((p) => p.isBot) ? 'REMOVE BOTS' : '+4 BOTS'}</span>
+                </button>
+              </div>
             ) : (
               <div className="text-xs font-mono font-bold text-amber-400 bg-slate-950 px-5 py-2.5 rounded-xl border border-slate-800 animate-pulse">
                 WAITING FOR HOST TO LAUNCH GAME...
@@ -302,74 +304,68 @@ export default function PlayRoomPage() {
         {/* IN-GAME MULTIPLAYER ARENA */}
         {(room.status === 'in-game' || room.status === 'countdown' || room.status === 'round-end') && (
           <div className="flex flex-col gap-4 flex-1">
-            
             {/* Real-time Multiplayer Track Widget for KeyDash Racer */}
             {room.settings.mode === 'keydash-race' && (
-              <div className="w-full bg-slate-950 border-2 border-amber-400/60 rounded-xl p-3 shadow-retro flex flex-col gap-2">
-                <div className="flex items-center justify-between text-xs font-mono font-bold text-amber-400">
-                  <span>🏎️ MULTIPLAYER SPEEDWAY SPRINT</span>
-                  <span>LAP {room.currentRound} / {room.settings.rounds}</span>
+              <div className="w-full bg-slate-950 border-2 border-amber-400/80 rounded-2xl p-4 shadow-retro flex flex-col gap-3">
+                <div className="flex items-center justify-between text-xs font-mono font-black text-amber-400 border-b border-slate-900 pb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base animate-bounce">🏎️</span>
+                    <span>KEYDASH SPEEDWAY MULTIPLAYER CIRCUIT</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="px-2.5 py-0.5 rounded bg-amber-400/20 text-amber-300 border border-amber-400/40">
+                      LAP {room.currentRound} / {room.settings.rounds}
+                    </span>
+                  </div>
                 </div>
-                <div className="flex flex-col gap-1.5">
+
+                {/* Asphalt Lanes Grid */}
+                <div className="flex flex-col gap-2">
                   {playersList.map((p) => {
-                    const percent = Math.min(90, Math.round((p.score / (room.settings.rounds * 150)) * 90));
+                    const percent = Math.min(92, Math.max(3, Math.round((p.score / (room.settings.rounds * 150)) * 92)));
+                    const isMe = p.id === myId;
+                    const isFastest = p.score > 0 && p.score === Math.max(...playersList.map(pl => pl.score));
+
                     return (
-                      <div key={p.id} className="relative h-8 bg-slate-900 rounded-lg flex items-center px-2 overflow-hidden">
+                      <div
+                        key={p.id}
+                        className={`relative h-11 bg-slate-900/90 rounded-xl flex items-center px-3 border transition-all overflow-hidden ${
+                          isMe ? 'border-amber-400/70 shadow-[0_0_10px_rgba(245,158,11,0.2)]' : 'border-slate-800'
+                        }`}
+                      >
+                        {/* Lane markings */}
+                        <div className="absolute inset-x-0 h-[1px] border-b border-dashed border-slate-800 pointer-events-none" />
+                        
+                        {/* Finish line checkered strip */}
+                        <div className="absolute right-0 top-0 bottom-0 w-4 bg-[repeating-conic-gradient(#fff_0_90deg,#000_90deg_180deg)] [background-size:8px_8px] opacity-40" />
+
+                        {/* Racing Car & Avatar */}
                         <div
-                          className="absolute transition-all duration-300 flex items-center gap-1.5"
+                          className="absolute transition-all duration-500 ease-out flex items-center gap-2 z-10"
                           style={{ left: `calc(${percent}% + 4px)` }}
                         >
-                          <Avatar config={p.avatar} size={24} />
-                          <span className="text-[10px] font-mono font-black text-white truncate max-w-[80px]">
-                            {p.nickname} {p.id === myId ? '(YOU)' : ''}
-                          </span>
+                          <div className="relative">
+                            <Avatar config={p.avatar} size={28} status={p.status} />
+                            <span className="absolute -bottom-1 -right-1 text-xs">🏎️</span>
+                          </div>
+
+                          <div className="flex flex-col">
+                            <div className="flex items-center gap-1">
+                              <span className="text-[11px] font-mono font-black text-white truncate max-w-[85px]">
+                                {p.nickname} {isMe ? '(YOU)' : ''}
+                              </span>
+                              {isFastest && (
+                                <span className="text-[9px] font-mono font-black text-amber-400">👑 1ST</span>
+                              )}
+                            </div>
+                            <span className="text-[9px] font-mono font-bold text-amber-300">
+                              {p.score}m {p.streak >= 2 ? `• ${p.streak}🔥` : ''}
+                            </span>
+                          </div>
                         </div>
                       </div>
                     );
                   })}
-                </div>
-              </div>
-            )}
-
-            {/* Real-time Multiplayer Track Widget for Police Chase */}
-            {room.settings.mode === 'police-chase' && (
-              <div className="w-full bg-slate-950 border-2 border-rose-500/60 rounded-xl p-3 shadow-retro flex flex-col gap-2">
-                <div className="flex items-center justify-between text-xs font-mono font-bold text-rose-400">
-                  <span className="flex items-center gap-1.5">
-                    <span className="animate-pulse">🚨</span> HIGHWAY PURSUIT SQUADRON
-                  </span>
-                  <span>SURVIVE THE CRUISERS</span>
-                </div>
-                <div className="flex items-center justify-between gap-3 text-xs font-mono">
-                  <div className="flex items-center gap-2">
-                    <div className="w-10 h-7 bg-blue-900 border border-black rounded flex items-center justify-center font-black text-[9px]">
-                      POLICE
-                    </div>
-                    <span className="text-[10px] text-rose-400 font-bold">CLOSING IN</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    {playersList.map((p) => (
-                      <div key={p.id} className="flex items-center gap-1 bg-slate-900 px-2 py-1 rounded border border-slate-800 text-[11px]">
-                        <Avatar config={p.avatar} size={18} />
-                        <span className="font-bold text-white">{p.nickname}:</span>
-                        <span className="text-amber-400 font-black">{p.score}m</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Real-time Multiplayer Header Widget for Laser Shooter */}
-            {room.settings.mode === 'laser-shooter' && (
-              <div className="w-full bg-slate-950 border-2 border-cyan-500/60 rounded-xl p-3 shadow-retro flex items-center justify-between text-xs font-mono">
-                <div className="flex items-center gap-2">
-                  <span className="text-lg">🚀</span>
-                  <span className="font-black text-cyan-400">SECTOR DEFENSE TURRET ARENA</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-slate-400">WAVE {room.currentRound}</span>
-                  <span className="text-amber-400 font-black">ALL TURRETS ENGAGED</span>
                 </div>
               </div>
             )}
@@ -393,6 +389,10 @@ export default function PlayRoomPage() {
                   roundStartTime={room.roundStartTime}
                   roundEndTime={room.roundEndTime}
                   status={room.status}
+                  mode={room.settings.mode}
+                  currentTurnPlayerName={
+                    room.currentTurnPlayerId ? room.players[room.currentTurnPlayerId]?.nickname : undefined
+                  }
                   isCurrentTurn={isTurn}
                   onSubmit={handleSubmitWord}
                   isSubmitted={isSubmitted}

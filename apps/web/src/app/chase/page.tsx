@@ -45,17 +45,85 @@ const RUNNER_SPEECH_DANGER = [
   'No way I am getting caught!'
 ];
 
+export interface ChaseLevel {
+  level: number;
+  title: string;
+  location: string;
+  targetGap: number;
+  timeLimit: number;
+  catchRate: number;
+  cruiserName: string;
+  envBadge: string;
+}
+
+const CHASE_LEVELS: ChaseLevel[] = [
+  {
+    level: 1,
+    title: 'Suburban Alleyways',
+    location: 'Quiet Neighborhood',
+    targetGap: 45,
+    timeLimit: 50,
+    catchRate: 0.35,
+    cruiserName: 'Local Patrol Cruisers',
+    envBadge: 'bg-sky-500/20 text-sky-400 border-sky-500/40'
+  },
+  {
+    level: 2,
+    title: 'Downtown Expressway',
+    location: 'Highway Grid',
+    targetGap: 55,
+    timeLimit: 45,
+    catchRate: 0.50,
+    cruiserName: 'Undercover Interceptors',
+    envBadge: 'bg-amber-500/20 text-amber-400 border-amber-500/40'
+  },
+  {
+    level: 3,
+    title: 'Industrial Freight Docks',
+    location: 'Cargo Terminal',
+    targetGap: 65,
+    timeLimit: 40,
+    catchRate: 0.65,
+    cruiserName: 'SWAT Armored Rigs',
+    envBadge: 'bg-rose-500/20 text-rose-400 border-rose-500/40'
+  },
+  {
+    level: 4,
+    title: 'Mountain Canyon Tunnels',
+    location: 'Alpine Pass',
+    targetGap: 75,
+    timeLimit: 35,
+    catchRate: 0.80,
+    cruiserName: 'Pursuit Supercars',
+    envBadge: 'bg-purple-500/20 text-purple-400 border-purple-500/40'
+  },
+  {
+    level: 5,
+    title: 'Apex Aerial Grid',
+    location: 'State Airspace Lockdown',
+    targetGap: 85,
+    timeLimit: 30,
+    catchRate: 0.95,
+    cruiserName: 'Helicopter Strike Squad',
+    envBadge: 'bg-pink-500/20 text-pink-400 border-pink-500/40'
+  }
+];
+
 export default function PoliceChasePage() {
   const [gameState, setGameState] = useState<'ready' | 'chasing' | 'busted' | 'escaped'>('ready');
   const [isPaused, setIsPaused] = useState(false);
   const [isControlsModalOpen, setIsControlsModalOpen] = useState(false);
+
+  // Progressive Level (1 to 5)
+  const [currentLevel, setCurrentLevel] = useState(1);
+  const activeLevel = CHASE_LEVELS[currentLevel - 1] || CHASE_LEVELS[0];
 
   // Difficulty Tier
   const [tier, setTier] = useState<'novice' | 'mid' | 'pro'>('mid');
   const [flashingFxEnabled, setFlashingFxEnabled] = useState(true);
 
   // Pursuit metrics
-  const [timeRemaining, setTimeRemaining] = useState(60);
+  const [timeRemaining, setTimeRemaining] = useState(activeLevel.timeLimit);
   const [gapMeters, setGapMeters] = useState(45); // Police gap (0 to 100m)
   const [wordsCompleted, setWordsCompleted] = useState(0);
   const [combo, setCombo] = useState(0);
@@ -76,19 +144,22 @@ export default function PoliceChasePage() {
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const tickRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Police approach speed based on tier (meters per tick)
-  const policeCatchRate = tier === 'novice' ? 0.35 : tier === 'mid' ? 0.55 : 0.85;
+  // Police approach speed based on tier and level (meters per tick)
+  const policeCatchRate = activeLevel.catchRate * (tier === 'novice' ? 0.8 : tier === 'mid' ? 1.0 : 1.25);
 
   // Initialize Game Run
-  const initRun = () => {
+  const initRun = (overrideLevel?: number | any) => {
     sound.stopSiren();
+    const targetLvl = typeof overrideLevel === 'number' ? overrideLevel : currentLevel;
+    const lvlConfig = CHASE_LEVELS[targetLvl - 1] || CHASE_LEVELS[0];
+
     // Shuffle words
     const shuffled = [...CHASE_WORDS_SAMPLE, ...CHASE_WORDS_SAMPLE].sort(() => Math.random() - 0.5);
     setWords(shuffled);
     setWordIdx(0);
     setCurrentInput('');
     setGapMeters(45);
-    setTimeRemaining(60);
+    setTimeRemaining(lvlConfig.timeLimit);
     setWordsCompleted(0);
     setCombo(0);
     setMaxCombo(0);
@@ -111,7 +182,7 @@ export default function PoliceChasePage() {
       if (timerRef.current) clearInterval(timerRef.current);
       if (tickRef.current) clearInterval(tickRef.current);
     };
-  }, [tier]);
+  }, [tier, currentLevel]);
 
   // Start Chase
   const startChase = () => {
@@ -317,16 +388,38 @@ export default function PoliceChasePage() {
       <header className="w-full bg-[#0a0c10] border-b border-zinc-800/80 px-4 py-3 sticky top-0 z-30">
         <div className="max-w-6xl mx-auto flex items-center justify-between gap-4">
           
-          {/* Logo & Level Badge */}
-          <div className="flex items-center gap-3">
-            <Link href="/" className="flex items-center gap-2 group">
+          {/* Logo & Level Badges */}
+          <div className="flex items-center gap-2.5">
+            <Link href="/" className="flex items-center gap-1.5 group">
               <span className="text-xl font-mono font-black text-amber-400 tracking-wider">
                 KEYDASH
               </span>
             </Link>
 
-            {/* Level Tier selector */}
+            {/* Level Selector 1 to 5 */}
             <div className="flex items-center gap-1 bg-zinc-900 border border-zinc-800 rounded-lg p-1 text-[11px] font-mono font-bold">
+              {CHASE_LEVELS.map((lvl) => (
+                <button
+                  key={lvl.level}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setCurrentLevel(lvl.level);
+                  }}
+                  disabled={gameState === 'chasing'}
+                  className={`px-2 py-0.5 rounded uppercase tracking-wider transition-all ${
+                    currentLevel === lvl.level
+                      ? 'bg-amber-400 text-slate-950 font-black'
+                      : 'text-zinc-400 hover:text-white disabled:opacity-40'
+                  }`}
+                  title={`${lvl.title}: ${lvl.location}`}
+                >
+                  L{lvl.level}
+                </button>
+              ))}
+            </div>
+
+            {/* Tier selector */}
+            <div className="hidden lg:flex items-center gap-1 bg-zinc-900 border border-zinc-800 rounded-lg p-1 text-[10px] font-mono font-bold">
               {(['novice', 'mid', 'pro'] as const).map((t) => (
                 <button
                   key={t}
@@ -335,13 +428,13 @@ export default function PoliceChasePage() {
                     setTier(t);
                   }}
                   disabled={gameState === 'chasing'}
-                  className={`px-2 py-0.5 rounded uppercase tracking-wider transition-all ${
+                  className={`px-1.5 py-0.5 rounded uppercase tracking-wider transition-all ${
                     tier === t
-                      ? 'bg-amber-400 text-slate-950 font-black'
-                      : 'text-zinc-400 hover:text-white disabled:opacity-40'
+                      ? 'bg-zinc-700 text-white font-black'
+                      : 'text-zinc-500 hover:text-white disabled:opacity-40'
                   }`}
                 >
-                  LV · {t === 'novice' ? 'LOW' : t === 'mid' ? 'MID' : 'PRO'}
+                  {t}
                 </button>
               ))}
             </div>
@@ -665,10 +758,10 @@ export default function PoliceChasePage() {
           <div className="flex items-center justify-between text-[10px] font-mono text-zinc-500 pt-2 border-t border-zinc-900">
             <div className="flex items-center gap-1.5">
               <span className={`w-2 h-2 rounded-full ${isNear ? 'bg-red-500 animate-ping' : 'bg-amber-400'}`} />
-              <span className="uppercase tracking-wider">LEAD</span>
+              <span className="uppercase tracking-wider">LEVEL {currentLevel}: {activeLevel.title}</span>
             </div>
-            <span className="tracking-wider text-zinc-600 uppercase">
-              CITY STREET
+            <span className="tracking-wider text-zinc-400 uppercase hidden sm:inline">
+              UNIT: {activeLevel.cruiserName}
             </span>
             <span className={`font-mono font-bold ${isNear ? 'text-red-400' : 'text-zinc-400'}`}>
               {gapMeters}m {isNear ? 'CLOSING IN' : 'CLEAR'}
@@ -713,7 +806,7 @@ export default function PoliceChasePage() {
                   Main Menu
                 </Link>
                 <button
-                  onClick={initRun}
+                  onClick={() => initRun()}
                   className="flex-1 py-3 rounded-xl bg-red-600 hover:bg-red-500 text-white font-mono font-black text-xs uppercase tracking-wider border-2 border-black shadow-retro-sm transition-all"
                 >
                   Retry Escape
@@ -728,11 +821,14 @@ export default function PoliceChasePage() {
             <div className="w-full max-w-md bg-slate-950 border-3 border-emerald-400 rounded-3xl p-6 text-center flex flex-col gap-4 shadow-[0_0_50px_rgba(16,185,129,0.3)]">
               <span className="text-5xl animate-bounce">🏆</span>
               <div>
-                <h2 className="text-2xl font-mono font-black text-emerald-400 uppercase tracking-wider">
-                  CLEAN ESCAPE!
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
+                  LEVEL {currentLevel} CLEARED
+                </span>
+                <h2 className="text-2xl font-mono font-black text-emerald-400 uppercase tracking-wider mt-1">
+                  {activeLevel.title}
                 </h2>
                 <p className="text-xs font-mono text-zinc-400 mt-1">
-                  You outran the cruisers and reached the safehouse!
+                  You outran the {activeLevel.cruiserName} and reached the safehouse!
                 </p>
               </div>
 
@@ -754,16 +850,29 @@ export default function PoliceChasePage() {
               <div className="flex items-center gap-3 mt-2">
                 <Link
                   href="/"
-                  className="flex-1 py-3 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-300 font-mono font-bold text-xs border border-zinc-800 transition-all text-center"
+                  className="py-3 px-4 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-300 font-mono font-bold text-xs border border-zinc-800 transition-all text-center"
                 >
                   Main Menu
                 </Link>
-                <button
-                  onClick={initRun}
-                  className="flex-1 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-mono font-black text-xs uppercase tracking-wider border-2 border-black shadow-retro-sm transition-all"
-                >
-                  Play Again
-                </button>
+                {currentLevel < 5 ? (
+                  <button
+                    onClick={() => {
+                      const nextLvl = currentLevel + 1;
+                      setCurrentLevel(nextLvl);
+                      initRun(nextLvl);
+                    }}
+                    className="flex-1 py-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-mono font-black text-xs uppercase tracking-wider border-2 border-black shadow-retro-sm transition-all"
+                  >
+                    NEXT LEVEL {currentLevel + 1} ▶
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => initRun(1)}
+                    className="flex-1 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-mono font-black text-xs uppercase tracking-wider border-2 border-black shadow-retro-sm transition-all"
+                  >
+                    ALL CLEARED! REPLAY L1 ▶
+                  </button>
+                )}
               </div>
             </div>
           </div>

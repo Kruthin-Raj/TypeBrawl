@@ -35,7 +35,7 @@ export const PlayerRoster: React.FC<PlayerRosterProps> = ({
               key={player.id}
               className={`flex items-center justify-between p-2.5 rounded-xl border-2 transition-all shadow-retro-sm ${
                 isTurn
-                  ? 'bg-amber-950/60 border-amber-400'
+                  ? 'bg-rose-950/50 border-rose-500 shadow-[0_0_15px_rgba(239,68,68,0.35)] animate-pulse'
                   : isMe
                   ? 'bg-retro-card border-blue-500'
                   : 'bg-retro-card border-slate-900 hover:border-slate-700'
@@ -51,7 +51,7 @@ export const PlayerRoster: React.FC<PlayerRosterProps> = ({
                       ? 'bg-slate-300 text-slate-900'
                       : index === 2
                       ? 'bg-amber-700 text-white'
-                      : 'bg-slate-900 text-slate-300'
+                      : 'bg-slate-950 text-slate-300'
                   }`}
                 >
                   {index + 1}
@@ -60,7 +60,7 @@ export const PlayerRoster: React.FC<PlayerRosterProps> = ({
                 <Avatar config={player.avatar} size={42} status={player.status} />
 
                 <div className="flex flex-col text-left">
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 flex-wrap">
                     <span className="font-mono font-bold text-xs text-white truncate max-w-[95px]">
                       {player.nickname}
                     </span>
@@ -74,13 +74,28 @@ export const PlayerRoster: React.FC<PlayerRosterProps> = ({
                         YOU
                       </span>
                     )}
+                    {player.isBot && (
+                      <span className="text-[9px] font-mono font-black bg-purple-500/20 text-purple-300 px-1.5 py-0.2 rounded border border-purple-500/40">
+                        🤖 BOT
+                      </span>
+                    )}
+                    {isTurn && (
+                      <span className="text-[9px] font-mono font-black bg-rose-500 text-white px-1.5 py-0.5 rounded border border-black animate-bounce-short shadow-sm">
+                        💣 BOMB
+                      </span>
+                    )}
                   </div>
 
                   <div className="flex items-center gap-2 mt-0.5 text-[10px] font-mono text-slate-400">
-                    {player.lives !== undefined && player.lives < 3 && player.lives > 0 && (
-                      <div className="flex items-center text-rose-400">
-                        <Heart className="w-3 h-3 fill-current" />
-                        <span className="ml-0.5 font-bold">{player.lives}</span>
+                    {player.lives !== undefined && (
+                      <div className="flex items-center text-rose-400 gap-0.5">
+                        {player.lives > 0 ? (
+                          [...Array(player.lives)].map((_, i) => (
+                            <Heart key={i} className="w-3 h-3 fill-current text-rose-500" />
+                          ))
+                        ) : (
+                          <span className="text-slate-500 font-bold">ELIMINATED 💀</span>
+                        )}
                       </div>
                     )}
 

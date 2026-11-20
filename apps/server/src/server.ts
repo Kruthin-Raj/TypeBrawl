@@ -64,6 +64,16 @@ io.on('connection', (socket) => {
     roomManager.toggleReady(socket.id);
   });
 
+  // Explicit Leave Room
+  socket.on('room:leave', () => {
+    roomManager.leaveRoom(socket);
+  });
+
+  // Toggle AI Bots in Lobby
+  socket.on('room:toggle_bots', () => {
+    roomManager.toggleBots(socket.id);
+  });
+
   // Start Game
   socket.on('room:start', () => {
     roomManager.startGame(socket.id);
