@@ -112,5 +112,15 @@ export const PRACTICE_PARAGRAPHS = {
     "Sophisticated distributed architectures rely on server-authoritative state synchronization to prevent latency desynchronization and client-side manipulation across real-time multiplayer networks.",
     "Algorithmic optimization frequently requires evaluating computational time complexity alongside memory footprints, balancing elegant abstractions against raw hardware throughput.",
     "Quantum cryptography leverages the fundamental Heisenberg uncertainty principle to establish mathematically unbreakable key distributions over photonic fiber-optic channels."
+  ],
+  gaming: [
+    "Speedrun through the neon speedway and hit every checkpoint before the rival racers catch up. Upgrade your nitro boost, master every turn, clutch the final lap, and claim the championship trophy.",
+    "Respawn at the main base, equip your legendary gear, and coordinate with your squad for the final boss encounter in the ancient forgotten temple.",
+    "Arcade racing tests pure reflexes and rapid hand-eye coordination. Hold down the accelerator, dodge obstacles across the lanes, and overtake every opponent on the track."
+  ],
+  code: [
+    "const racers = await getActiveRacers(); return racers.filter(r => r.wpm > 60).sort((a, b) => b.score - a.score);",
+    "function triggerNitroBoost(player) { if (player.streak >= 4) { player.speedMultiplier = 1.5; triggerNitroEffects(); } }",
+    "export default function RaceEngine() { const [speed, setSpeed] = useState(0); return <div className='racer-speedway'>{speed}</div>; }"
   ]
 };

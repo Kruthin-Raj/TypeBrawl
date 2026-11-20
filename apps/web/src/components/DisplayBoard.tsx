@@ -65,7 +65,8 @@ export const DisplayBoard: React.FC<DisplayBoardProps> = ({
       setTimeLeftSec(remainingSec);
       setProgressPercent(fraction * 100);
 
-      if (remainingSec <= 3 && remainingSec > 0 && Math.floor(remainingMs % 1000) < 100) {
+      // Do NOT play tick sound in bomb-pass mode (fuse is completely hidden!)
+      if (mode !== 'bomb-pass' && remainingSec <= 3 && remainingSec > 0 && Math.floor(remainingMs % 1000) < 100) {
         sound.playTick();
       }
 
@@ -75,7 +76,7 @@ export const DisplayBoard: React.FC<DisplayBoardProps> = ({
     }, 50);
 
     return () => clearInterval(interval);
-  }, [status, roundEndTime, timerSec]);
+  }, [status, roundEndTime, timerSec, mode]);
 
   const handleKeyDown = async (e: React.KeyboardEvent<HTMLInputElement>) => {
     sound.playKeyClick();
@@ -108,16 +109,31 @@ export const DisplayBoard: React.FC<DisplayBoardProps> = ({
         </span>
 
         <div className="flex items-center gap-2">
-          <span className="text-slate-400">TIMER:</span>
-          <span
-            className={`px-3 py-0.5 rounded-lg text-sm font-black border-2 ${
-              isUrgent
-                ? 'bg-red-500/30 text-red-400 border-red-500 animate-pulse'
-                : 'bg-slate-950 text-white border-black'
-            }`}
-          >
-            {timeLeftSec}s
-          </span>
+          {isEliminated && (
+            <span className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-black border-2 bg-purple-950/80 text-purple-300 border-purple-500 animate-pulse">
+              <span>👀</span>
+              <span>SPECTATING</span>
+            </span>
+          )}
+          {mode === 'bomb-pass' ? (
+            <span className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-black border-2 bg-rose-950/80 text-rose-300 border-rose-500 animate-pulse shadow-[0_0_15px_rgba(239,68,68,0.4)]">
+              <span className="text-sm">💣</span>
+              <span>BOMB EXPLODING SOON! PASS IT FAST!</span>
+            </span>
+          ) : (
+            <>
+              <span className="text-slate-400">TIMER:</span>
+              <span
+                className={`px-3 py-0.5 rounded-lg text-sm font-black border-2 ${
+                  isUrgent
+                    ? 'bg-red-500/30 text-red-400 border-red-500 animate-pulse'
+                    : 'bg-slate-950 text-white border-black'
+                }`}
+              >
+                {timeLeftSec}s
+              </span>
+            </>
+          )}
         </div>
       </div>
 
@@ -142,28 +158,49 @@ export const DisplayBoard: React.FC<DisplayBoardProps> = ({
 
         {status === 'in-game' && (
           <>
-            {mode === 'bomb-pass' && (
+            {isEliminated ? (
+              <div className="flex flex-col items-center gap-1 px-4 py-2 rounded-xl bg-purple-950/70 border-2 border-purple-500/60 text-purple-200 font-mono font-bold text-xs uppercase mb-2 z-10 shadow-retro-sm">
+                <div className="flex items-center gap-2 text-purple-300">
+                  <span className="text-base animate-pulse">👀</span>
+                  <span>SPECTATING: {currentTurnPlayerName || 'Active combatant'} has the bomb!</span>
+                </div>
+                <span className="text-[10px] text-slate-400">
+                  You are spectating live. Watch remaining combatants fight to survive!
+                </span>
+              </div>
+            ) : mode === 'bomb-pass' ? (
               isCurrentTurn ? (
-                <div className="flex items-center gap-2 px-3 py-1 rounded-xl bg-rose-500/25 border-2 border-rose-500 text-rose-300 font-mono font-black text-xs uppercase animate-pulse mb-1.5 z-10 shadow-[0_0_15px_rgba(239,68,68,0.4)]">
-                  <span className="text-sm animate-bounce">💣</span>
-                  <span>YOU HOLD THE BOMB! TYPE WORD & HIT ENTER TO PASS!</span>
+                <div className="flex flex-col items-center gap-1 px-4 py-2 rounded-xl bg-gradient-to-r from-rose-950/90 via-red-900/90 to-rose-950/90 border-2 border-rose-500 text-rose-200 font-mono font-black text-xs sm:text-sm uppercase animate-pulse mb-2 z-10 shadow-[0_0_20px_rgba(239,68,68,0.5)]">
+                  <div className="flex items-center gap-2 text-rose-300">
+                    <span className="text-lg animate-bounce">💣</span>
+                    <span>BOMB EXPLODING SOON! PASS IT TO OTHERS QUICKLY!</span>
+                    <span className="text-lg animate-bounce">🏃💨</span>
+                  </div>
+                  <span className="text-[10px] text-amber-300 font-bold tracking-wider">
+                    ⚡ TICKING FUSE! PASS TO OTHERS BEFORE IT DETONATES IN YOUR HANDS!
+                  </span>
                 </div>
               ) : (
-                <div className="flex items-center gap-2 px-3 py-1 rounded-xl bg-slate-900 border-2 border-slate-800 text-amber-400 font-mono font-bold text-xs uppercase mb-1.5 z-10">
-                  <span className="text-sm">💣</span>
-                  <span>{currentTurnPlayerName || 'Another player'} holds the bomb! Stand by...</span>
+                <div className="flex flex-col items-center gap-1 px-4 py-2 rounded-xl bg-slate-900/90 border-2 border-amber-500/50 text-amber-300 font-mono font-bold text-xs uppercase mb-2 z-10 shadow-retro-sm">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base animate-pulse">💣</span>
+                    <span>{currentTurnPlayerName || 'Another player'} holds the ticking bomb! Stand by!</span>
+                  </div>
+                  <span className="text-[10px] text-slate-400">
+                    ⚠️ Bomb can explode at any second or be passed to you!
+                  </span>
                 </div>
               )
-            )}
+            ) : null}
 
-            {mode === 'keydash-race' && (
+            {!isEliminated && mode === 'keydash-race' && (
               <div className="flex items-center gap-2 px-3 py-1 rounded-xl bg-amber-500/20 border-2 border-amber-400 text-amber-300 font-mono font-bold text-xs uppercase mb-1.5 z-10 animate-pulse">
                 <span>🏎️</span>
                 <span>SPEEDWAY SPRINT! Type word fast to burst your car ahead with nitro!</span>
               </div>
             )}
 
-            {mode === 'type-or-die' && (
+            {!isEliminated && mode === 'type-or-die' && (
               <div className="flex items-center gap-2 px-3 py-1 rounded-xl bg-orange-950/60 border-2 border-orange-500 text-orange-300 font-mono font-bold text-xs uppercase mb-1.5 z-10 animate-pulse">
                 <span>🌋</span>
                 <span>RISING LAVA! Type the word before time runs out!</span>
@@ -171,7 +208,13 @@ export const DisplayBoard: React.FC<DisplayBoardProps> = ({
             )}
 
             <span className="text-[11px] uppercase font-mono font-extrabold tracking-widest text-slate-400 mb-1 z-10">
-              TARGET WORD • PRESS ENTER TO SUBMIT
+              {isEliminated
+                ? '👀 TARGET WORD (SPECTATING LIVE MATCH)'
+                : mode === 'bomb-pass'
+                ? isCurrentTurn
+                  ? '🔥 TYPE WORD QUICKLY & HIT ENTER TO PASS! 🔥'
+                  : `💣 ${currentTurnPlayerName || 'CURRENT PLAYER'} IS TYPING TO PASS...`
+                : 'TARGET WORD • PRESS ENTER TO SUBMIT'}
             </span>
 
             {/* Target Word */}
@@ -189,13 +232,25 @@ export const DisplayBoard: React.FC<DisplayBoardProps> = ({
 
         {status === 'round-end' && (
           <div className="z-10 animate-bounce-short">
-            <span className="text-xs font-mono font-bold text-slate-400 uppercase tracking-widest">
-              ROUND ENDED
-            </span>
-            <h3 className="text-3xl font-mono font-black text-white mt-1">
-              Word: <span className="text-amber-400">{word}</span>
-            </h3>
-            <p className="text-[11px] font-mono text-slate-400 mt-1">Next round launching...</p>
+            {mode === 'bomb-pass' ? (
+              <>
+                <span className="text-3xl animate-bounce mb-1 block">💥</span>
+                <span className="text-xs font-mono font-bold text-rose-400 uppercase tracking-widest">
+                  BOOM! THE BOMB DETONATED!
+                </span>
+                <p className="text-[11px] font-mono text-slate-400 mt-1">Next bomb round igniting in 3s...</p>
+              </>
+            ) : (
+              <>
+                <span className="text-xs font-mono font-bold text-slate-400 uppercase tracking-widest">
+                  ROUND ENDED
+                </span>
+                <h3 className="text-3xl font-mono font-black text-white mt-1">
+                  Word: <span className="text-amber-400">{word}</span>
+                </h3>
+                <p className="text-[11px] font-mono text-slate-400 mt-1">Next round launching...</p>
+              </>
+            )}
           </div>
         )}
 
@@ -217,8 +272,8 @@ export const DisplayBoard: React.FC<DisplayBoardProps> = ({
           </div>
         )}
 
-        {/* Synchronized Progress Countdown Bar */}
-        {status === 'in-game' && (
+        {/* Synchronized Progress Countdown Bar (Disabled for bomb-pass so players cannot tell when it explodes) */}
+        {status === 'in-game' && mode !== 'bomb-pass' && (
           <div className="absolute bottom-0 left-0 w-full h-3 bg-slate-900 border-t border-slate-800">
             <div
               className={`h-full transition-all duration-75 ${
@@ -242,15 +297,15 @@ export const DisplayBoard: React.FC<DisplayBoardProps> = ({
             disabled={status !== 'in-game' || isSubmitted || isEliminated || !isCurrentTurn}
             placeholder={
               isEliminated
-                ? '💀 Knocked out (Spectating Arena)'
+                ? '👀 Spectating live match (Out of lives). Enjoy the battle & chat!'
                 : isSubmitted
                 ? mode === 'bomb-pass'
-                  ? '💣 Passed the bomb! Waiting for next turn...'
+                  ? '💣 Passed the bomb! Stay alert...'
                   : 'Submitted! Waiting for round end...'
                 : mode === 'bomb-pass' && !isCurrentTurn
-                ? `💣 ${currentTurnPlayerName || 'Active player'} has the bomb...`
+                ? `💣 ${currentTurnPlayerName || 'Active player'} has the bomb... stay alert!`
                 : mode === 'bomb-pass' && isCurrentTurn
-                ? '💣 YOU HAVE THE BOMB! Type and hit ENTER to pass!'
+                ? '💣 BOMB EXPLODING SOON! Type word & press ENTER to pass!'
                 : mode === 'keydash-race'
                 ? '🏎️ Type word and hit ENTER for Nitro burst!'
                 : mode === 'type-or-die'

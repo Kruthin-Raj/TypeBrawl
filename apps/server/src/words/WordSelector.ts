@@ -4,7 +4,9 @@ import {
   MEDIUM_WORDS,
   HARD_WORDS,
   GAMING_WORDS,
-  CODE_WORDS
+  CODE_WORDS,
+  PRACTICE_PARAGRAPHS,
+  FAMOUS_QUOTES
 } from '@typefest/shared';
 
 export class WordSelector {
@@ -41,5 +43,39 @@ export class WordSelector {
     const chosen = targetPool[randomIndex];
     usedWords.add(chosen);
     return chosen;
+  }
+
+  public static getRaceParagraph(difficulty: WordDifficulty): string {
+    switch (difficulty) {
+      case 'easy': {
+        const pool = PRACTICE_PARAGRAPHS.easy;
+        return pool[Math.floor(Math.random() * pool.length)];
+      }
+      case 'medium': {
+        const pool = PRACTICE_PARAGRAPHS.medium;
+        return pool[Math.floor(Math.random() * pool.length)];
+      }
+      case 'hard': {
+        const pool = PRACTICE_PARAGRAPHS.hard;
+        return pool[Math.floor(Math.random() * pool.length)];
+      }
+      case 'gaming': {
+        const pool = PRACTICE_PARAGRAPHS.gaming || PRACTICE_PARAGRAPHS.medium;
+        return pool[Math.floor(Math.random() * pool.length)];
+      }
+      case 'code': {
+        const pool = PRACTICE_PARAGRAPHS.code || PRACTICE_PARAGRAPHS.medium;
+        return pool[Math.floor(Math.random() * pool.length)];
+      }
+      case 'mixed':
+      default: {
+        const allPool = [
+          ...PRACTICE_PARAGRAPHS.easy,
+          ...PRACTICE_PARAGRAPHS.medium,
+          ...FAMOUS_QUOTES.map((q) => q.quote)
+        ];
+        return allPool[Math.floor(Math.random() * allPool.length)];
+      }
+    }
   }
 }

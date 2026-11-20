@@ -4,18 +4,22 @@ import React, { useEffect } from 'react';
 import { Player } from '@typefest/shared';
 import { Avatar } from './Avatar';
 import confetti from 'canvas-confetti';
-import { Trophy, RotateCcw } from 'lucide-react';
+import { Trophy, RotateCcw, Home, LogOut } from 'lucide-react';
 import { sound } from '@/lib/sound';
 
 interface PodiumModalProps {
   standings: Player[];
   onPlayAgain: () => void;
+  onReturnToLobby?: () => void;
+  onExitRoom?: () => void;
   isHost: boolean;
 }
 
 export const PodiumModal: React.FC<PodiumModalProps> = ({
   standings,
   onPlayAgain,
+  onReturnToLobby,
+  onExitRoom,
   isHost
 }) => {
   useEffect(() => {
@@ -116,14 +120,42 @@ export const PodiumModal: React.FC<PodiumModalProps> = ({
           )}
         </div>
 
-        {/* Action Button */}
-        <div className="mt-6 flex justify-center">
+        {/* Action Buttons */}
+        <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+          {isHost ? (
+            <>
+              <button
+                onClick={onPlayAgain}
+                className="flex items-center gap-2 px-6 py-3 rounded-xl font-mono font-black text-sm uppercase tracking-wider bg-emerald-500 hover:bg-emerald-400 text-slate-950 border-2 border-black shadow-retro active:translate-x-[2px] active:translate-y-[2px] transition-all cursor-pointer"
+              >
+                <RotateCcw className="w-4 h-4" />
+                ⚡ REMATCH
+              </button>
+
+              <button
+                onClick={onReturnToLobby}
+                className="flex items-center gap-2 px-6 py-3 rounded-xl font-mono font-black text-sm uppercase tracking-wider bg-amber-400 hover:bg-amber-300 text-slate-950 border-2 border-black shadow-retro active:translate-x-[2px] active:translate-y-[2px] transition-all cursor-pointer"
+              >
+                <Home className="w-4 h-4" />
+                🏠 RETURN TO LOBBY
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={onReturnToLobby}
+              className="flex items-center gap-2 px-6 py-3 rounded-xl font-mono font-black text-sm uppercase tracking-wider bg-amber-400 hover:bg-amber-300 text-slate-950 border-2 border-black shadow-retro active:translate-x-[2px] active:translate-y-[2px] transition-all cursor-pointer"
+            >
+              <Home className="w-4 h-4" />
+              🏠 RETURN TO LOBBY
+            </button>
+          )}
+
           <button
-            onClick={onPlayAgain}
-            className="flex items-center gap-2 px-8 py-3 rounded-xl font-mono font-black text-sm uppercase tracking-wider bg-amber-400 hover:bg-amber-300 text-slate-950 border-2 border-black shadow-retro active:translate-x-[2px] active:translate-y-[2px] transition-all"
+            onClick={onExitRoom}
+            className="flex items-center gap-2 px-5 py-3 rounded-xl font-mono font-black text-sm uppercase tracking-wider bg-slate-900 hover:bg-slate-800 text-slate-300 border-2 border-slate-800 shadow-retro-sm active:translate-x-[1px] active:translate-y-[1px] transition-all cursor-pointer"
           >
-            <RotateCcw className="w-4 h-4" />
-            {isHost ? 'REMATCH / RETURN TO LOBBY' : 'RETURN TO LOBBY'}
+            <LogOut className="w-4 h-4 text-rose-400" />
+            EXIT ROOM
           </button>
         </div>
       </div>
