@@ -41,7 +41,7 @@ export default function LandingPage() {
   // Create room options
   const [timerSec, setTimerSec] = useState(8);
   const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard' | 'mixed' | 'gaming' | 'code'>('mixed');
-  const [gameMode, setGameMode] = useState<GameMode>('word-blitz');
+  const [gameMode, setGameMode] = useState<GameMode>('keydash-race');
   const [roomPassword, setRoomPassword] = useState('');
   const [isPublic, setIsPublic] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
@@ -75,16 +75,29 @@ export default function LandingPage() {
     saveUserToStorage(nickname, av);
   };
 
-  // Quick Play Matchmaking
-  const handleQuickPlay = () => {
+  // Quick Play Matchmaking (Joins public room with highest player count for chosen mode)
+  const handleQuickPlay = (targetMode: GameMode = 'keydash-race') => {
     sound.playGo();
     const socket = getSocket();
     setErrorMsg('');
 
     socket.emit('room:list', (rooms) => {
-      const available = rooms.filter((r) => !r.hasPassword && r.playerCount < r.maxPlayers);
+      // Find open public rooms matching the selected mode where player limit is not reached
+      const available = rooms.filter(
+        (r) => !r.hasPassword && r.mode === targetMode && r.playerCount < r.maxPlayers
+      );
+
       if (available.length > 0) {
-        const target = available[0];
+        // Sort descending to find rooms with the highest player count
+        available.sort((a, b) => b.playerCount - a.playerCount);
+        const highestPlayerCount = available[0].playerCount;
+
+        // Group all rooms tied for the highest player count
+        const topRooms = available.filter((r) => r.playerCount === highestPlayerCount);
+
+        // Pick one randomly among the highest player rooms
+        const target = topRooms[Math.floor(Math.random() * topRooms.length)];
+
         socket.emit(
           'room:join',
           { roomCode: target.code, player: { nickname, avatar } },
@@ -92,18 +105,19 @@ export default function LandingPage() {
             if (res.success) {
               router.push(`/play/${target.code}`);
             } else {
-              handleCreateRoom();
+              handleCreateRoom(targetMode, true);
             }
           }
         );
       } else {
-        handleCreateRoom();
+        // No room with players found online; create a new room with 4 AI bots ready to play!
+        handleCreateRoom(targetMode, true);
       }
     });
   };
 
   // Create Room
-  const handleCreateRoom = (modeOverride?: GameMode) => {
+  const handleCreateRoom = (modeOverride?: GameMode, withBots: boolean = false) => {
     sound.playGo();
     const socket = getSocket();
     setErrorMsg('');
@@ -120,7 +134,8 @@ export default function LandingPage() {
           rounds: 10,
           maxPlayers: 8,
           isPublic: isPublic && !roomPassword,
-          password: roomPassword || undefined
+          password: roomPassword || undefined,
+          withBots
         },
         player: { nickname, avatar }
       },
@@ -202,30 +217,40 @@ export default function LandingPage() {
             onAvatarChange={handleAvatarChange}
           />
 
-          {/* Arcade Games Grid (All with Solo & Room Creation!) */}
-          <div className="flex flex-col gap-3 w-full max-w-sm mx-auto">
+          {/* Game Modes Selection: 3 Room-Based Multiplayer + Solo Arcade Modes */}
+          <div className="flex flex-col gap-3.5 w-full max-w-sm mx-auto">
             
-            {/* Game 1: Display Board Arena */}
+            <div className="flex items-center justify-between px-1">
+              <span className="text-[11px] font-mono font-black uppercase text-amber-400 tracking-wider flex items-center gap-1.5">
+                <span>⚔️</span> MULTIPLAYER ARENAS (ROOMS)
+              </span>
+              <span className="text-[9px] font-mono text-slate-400">MAX 8 PLAYERS</span>
+            </div>
+
+            {/* Mode 1: KeyDash Racing Arena */}
             <div className="p-3 bg-retro-card border-2 border-slate-900 hover:border-amber-400/80 rounded-xl shadow-retro transition-all">
-              <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center justify-between mb-1.5">
                 <span className="text-xs font-mono font-black text-amber-300 flex items-center gap-1.5">
-                  <span>⚔️</span> DISPLAY BOARD ARENA
+                  <span>🏎️</span> KEYDASH RACING ARENA
                 </span>
                 <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-amber-400/20 text-amber-300 border border-amber-400/40">
-                  MULTIPLAYER
+                  SPEEDWAY
                 </span>
               </div>
+              <p className="text-[10px] font-mono text-slate-400 mb-2.5">
+                Speedway race with teammates in real-time! Nitro bursts across asphalt lanes.
+              </p>
               <div className="grid grid-cols-2 gap-2">
                 <button
-                  onClick={handleQuickPlay}
-                  className="py-2 px-3 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-mono font-black text-xs uppercase border-2 border-black shadow-retro-sm active:translate-x-[1px] active:translate-y-[1px] flex items-center justify-center gap-1.5"
+                  onClick={() => handleQuickPlay('keydash-race')}
+                  className="py-2 px-3 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-mono font-black text-xs uppercase border-2 border-black shadow-retro-sm active:translate-x-[1px] active:translate-y-[1px] flex items-center justify-center gap-1.5 transition-all"
                 >
                   <Play className="w-3.5 h-3.5 fill-current" />
                   <span>QUICK PLAY</span>
                 </button>
                 <button
-                  onClick={() => openHostModalFor('word-blitz')}
-                  className="py-2 px-3 rounded-lg bg-amber-400 hover:bg-amber-300 text-slate-950 font-mono font-black text-xs uppercase border-2 border-black shadow-retro-sm active:translate-x-[1px] active:translate-y-[1px] flex items-center justify-center gap-1.5"
+                  onClick={() => openHostModalFor('keydash-race')}
+                  className="py-2 px-3 rounded-lg bg-amber-400 hover:bg-amber-300 text-slate-950 font-mono font-black text-xs uppercase border-2 border-black shadow-retro-sm active:translate-x-[1px] active:translate-y-[1px] flex items-center justify-center gap-1.5 transition-all"
                 >
                   <PlusCircle className="w-3.5 h-3.5" />
                   <span>HOST ROOM</span>
@@ -233,103 +258,136 @@ export default function LandingPage() {
               </div>
               <button
                 onClick={() => setShowJoinModal(true)}
-                className="w-full mt-2 py-1.5 rounded-lg bg-slate-950 hover:bg-slate-900 text-slate-300 font-mono font-bold text-[11px] uppercase border border-slate-800 flex items-center justify-center gap-1"
+                className="w-full mt-2 py-1 rounded-lg bg-slate-950 hover:bg-slate-900 text-slate-300 font-mono font-bold text-[10px] uppercase border border-slate-800 flex items-center justify-center gap-1"
               >
                 <Hash className="w-3 h-3 text-amber-400" /> Enter Room Code
               </button>
             </div>
 
-            {/* Game 2: Police Chase Escape */}
+            {/* Mode 2: Hot Potato Arena */}
             <div className="p-3 bg-retro-card border-2 border-slate-900 hover:border-rose-500/80 rounded-xl shadow-retro transition-all">
-              <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-xs font-mono font-black text-rose-400 flex items-center gap-1.5">
+                  <span>💣</span> HOT POTATO ARENA
+                </span>
+                <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-400 border border-rose-500/40">
+                  TURN BOMB
+                </span>
+              </div>
+              <p className="text-[10px] font-mono text-slate-400 mb-2.5">
+                Ticking bomb passed player-to-player! 3 hearts elimination survival.
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => handleQuickPlay('bomb-pass')}
+                  className="py-2 px-3 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-mono font-black text-xs uppercase border-2 border-black shadow-retro-sm active:translate-x-[1px] active:translate-y-[1px] flex items-center justify-center gap-1.5 transition-all"
+                >
+                  <Play className="w-3.5 h-3.5 fill-current" />
+                  <span>QUICK PLAY</span>
+                </button>
+                <button
+                  onClick={() => openHostModalFor('bomb-pass')}
+                  className="py-2 px-3 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-mono font-black text-xs uppercase border-2 border-black shadow-retro-sm active:translate-x-[1px] active:translate-y-[1px] flex items-center justify-center gap-1.5 transition-all"
+                >
+                  <PlusCircle className="w-3.5 h-3.5" />
+                  <span>HOST ROOM</span>
+                </button>
+              </div>
+              <button
+                onClick={() => setShowJoinModal(true)}
+                className="w-full mt-2 py-1 rounded-lg bg-slate-950 hover:bg-slate-900 text-slate-300 font-mono font-bold text-[10px] uppercase border border-slate-800 flex items-center justify-center gap-1"
+              >
+                <Hash className="w-3 h-3 text-rose-400" /> Enter Room Code
+              </button>
+            </div>
+
+            {/* Mode 3: Fastest Word Challenge */}
+            <div className="p-3 bg-retro-card border-2 border-slate-900 hover:border-cyan-500/80 rounded-xl shadow-retro transition-all">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-xs font-mono font-black text-cyan-400 flex items-center gap-1.5">
+                  <span>⚡</span> FASTEST WORD CHALLENGE
+                </span>
+                <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-400 border border-cyan-500/40">
+                  WORD BLITZ
+                </span>
+              </div>
+              <p className="text-[10px] font-mono text-slate-400 mb-2.5">
+                Simultaneous word sprint! Speed & streak bonuses on the central display board.
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => handleQuickPlay('word-blitz')}
+                  className="py-2 px-3 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-mono font-black text-xs uppercase border-2 border-black shadow-retro-sm active:translate-x-[1px] active:translate-y-[1px] flex items-center justify-center gap-1.5 transition-all"
+                >
+                  <Play className="w-3.5 h-3.5 fill-current" />
+                  <span>QUICK PLAY</span>
+                </button>
+                <button
+                  onClick={() => openHostModalFor('word-blitz')}
+                  className="py-2 px-3 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-mono font-black text-xs uppercase border-2 border-black shadow-retro-sm active:translate-x-[1px] active:translate-y-[1px] flex items-center justify-center gap-1.5 transition-all"
+                >
+                  <PlusCircle className="w-3.5 h-3.5" />
+                  <span>HOST ROOM</span>
+                </button>
+              </div>
+              <button
+                onClick={() => setShowJoinModal(true)}
+                className="w-full mt-2 py-1 rounded-lg bg-slate-950 hover:bg-slate-900 text-slate-300 font-mono font-bold text-[10px] uppercase border border-slate-800 flex items-center justify-center gap-1"
+              >
+                <Hash className="w-3 h-3 text-cyan-400" /> Enter Room Code
+              </button>
+            </div>
+
+            {/* Solo Modes Section Divider */}
+            <div className="flex items-center justify-between px-1 pt-2 border-t border-slate-900">
+              <span className="text-[11px] font-mono font-black uppercase text-amber-400 tracking-wider flex items-center gap-1.5">
+                <span>🕹️</span> SOLO ARCADE CAMPAIGNS
+              </span>
+              <span className="text-[9px] font-mono text-slate-400">MULTI-LEVEL</span>
+            </div>
+
+            {/* Solo Game 1: Police Chase Escape */}
+            <div className="p-3 bg-retro-card border-2 border-slate-900 hover:border-rose-500/80 rounded-xl shadow-retro transition-all">
+              <div className="flex items-center justify-between mb-1">
                 <span className="text-xs font-mono font-black text-rose-400 flex items-center gap-1.5">
                   <span>🚨</span> POLICE PURSUIT ESCAPE
                 </span>
                 <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-400 border border-rose-500/40">
-                  SOLO & CO-OP
+                  5 LEVELS
                 </span>
               </div>
               <p className="text-[10px] font-mono text-slate-400 mb-2">
-                Outrun police cruisers with red proximity sirens & speed bursts
+                Outrun cruisers from suburban alleys to apex helicopter aerial lockdown!
               </p>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => router.push('/chase')}
-                  className="py-2 px-3 rounded-lg bg-slate-900 hover:bg-slate-800 text-rose-300 font-mono font-bold text-xs uppercase border border-rose-900/60 shadow-retro-sm flex items-center justify-center gap-1.5"
-                >
-                  <Play className="w-3.5 h-3.5 fill-current" />
-                  <span>PLAY SOLO</span>
-                </button>
-                <button
-                  onClick={() => openHostModalFor('police-chase')}
-                  className="py-2 px-3 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-mono font-black text-xs uppercase border-2 border-black shadow-retro-sm flex items-center justify-center gap-1.5"
-                >
-                  <PlusCircle className="w-3.5 h-3.5" />
-                  <span>HOST ROOM</span>
-                </button>
-              </div>
+              <button
+                onClick={() => router.push('/chase')}
+                className="w-full py-2 px-3 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-mono font-black text-xs uppercase border-2 border-black shadow-retro-sm active:translate-x-[1px] active:translate-y-[1px] flex items-center justify-center gap-1.5 transition-all"
+              >
+                <Play className="w-3.5 h-3.5 fill-current" />
+                <span>PLAY SOLO (5 LEVELS) ▶</span>
+              </button>
             </div>
 
-            {/* Game 3: Laser Type Shooter */}
+            {/* Solo Game 2: Laser Type Shooter */}
             <div className="p-3 bg-retro-card border-2 border-slate-900 hover:border-cyan-500/80 rounded-xl shadow-retro transition-all">
-              <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center justify-between mb-1">
                 <span className="text-xs font-mono font-black text-cyan-400 flex items-center gap-1.5">
                   <span>🚀</span> LASER TYPE SHOOTER
                 </span>
                 <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-400 border border-cyan-500/40">
-                  SOLO & CO-OP
+                  5 SECTORS
                 </span>
               </div>
               <p className="text-[10px] font-mono text-slate-400 mb-2">
-                Fire laser torpedoes and blast alien dreadnoughts with sized explosions
+                Lock on and blast alien armadas and flagship dreadnoughts across planetary sectors!
               </p>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => router.push('/shooter')}
-                  className="py-2 px-3 rounded-lg bg-slate-900 hover:bg-slate-800 text-cyan-300 font-mono font-bold text-xs uppercase border border-cyan-900/60 shadow-retro-sm flex items-center justify-center gap-1.5"
-                >
-                  <Play className="w-3.5 h-3.5 fill-current" />
-                  <span>PLAY SOLO</span>
-                </button>
-                <button
-                  onClick={() => openHostModalFor('laser-shooter')}
-                  className="py-2 px-3 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-mono font-black text-xs uppercase border-2 border-black shadow-retro-sm flex items-center justify-center gap-1.5"
-                >
-                  <PlusCircle className="w-3.5 h-3.5" />
-                  <span>HOST ROOM</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Game 4: KeyDash Arcade Racer */}
-            <div className="p-3 bg-retro-card border-2 border-slate-900 hover:border-amber-500/80 rounded-xl shadow-retro transition-all">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-mono font-black text-amber-300 flex items-center gap-1.5">
-                  <span>🏎️</span> KEYDASH ARCADE RACER
-                </span>
-                <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-amber-400/20 text-amber-300 border border-amber-400/40">
-                  SPEEDWAY
-                </span>
-              </div>
-              <p className="text-[10px] font-mono text-slate-400 mb-2">
-                Circuit speedway race with Nitro streaks and finish line podiums
-              </p>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => router.push('/keydash')}
-                  className="py-2 px-3 rounded-lg bg-slate-900 hover:bg-slate-800 text-amber-300 font-mono font-bold text-xs uppercase border border-amber-900/60 shadow-retro-sm flex items-center justify-center gap-1.5"
-                >
-                  <Play className="w-3.5 h-3.5 fill-current" />
-                  <span>PLAY SOLO</span>
-                </button>
-                <button
-                  onClick={() => openHostModalFor('keydash-race')}
-                  className="py-2 px-3 rounded-lg bg-amber-400 hover:bg-amber-300 text-slate-950 font-mono font-black text-xs uppercase border-2 border-black shadow-retro-sm flex items-center justify-center gap-1.5"
-                >
-                  <PlusCircle className="w-3.5 h-3.5" />
-                  <span>HOST ROOM</span>
-                </button>
-              </div>
+              <button
+                onClick={() => router.push('/shooter')}
+                className="w-full py-2 px-3 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-mono font-black text-xs uppercase border-2 border-black shadow-retro-sm active:translate-x-[1px] active:translate-y-[1px] flex items-center justify-center gap-1.5 transition-all"
+              >
+                <Play className="w-3.5 h-3.5 fill-current" />
+                <span>PLAY SOLO (5 SECTORS) ▶</span>
+              </button>
             </div>
 
             {/* Training Grounds link */}
@@ -344,7 +402,7 @@ export default function LandingPage() {
         </div>
       </main>
 
-      {/* CREATE ROOM MODAL (Support for all game modes!) */}
+      {/* CREATE ROOM MODAL (3 Valid Multiplayer Modes) */}
       {showCreateModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fadeIn">
           <div className="bg-retro-card border-4 border-slate-900 rounded-2xl p-6 max-w-lg w-full shadow-retro">
@@ -353,17 +411,14 @@ export default function LandingPage() {
             </h3>
 
             <div className="flex flex-col gap-3.5 text-xs font-mono font-bold">
-              {/* Game Mode Selector for ALL games! */}
+              {/* Game Mode Selector for Arena multiplayer games */}
               <div>
-                <label className="text-slate-400 block mb-1.5">SELECT GAME MODE</label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                <label className="text-slate-400 block mb-1.5">SELECT MULTIPLAYER MODE</label>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   {[
-                    { id: 'word-blitz', label: 'Word Blitz', icon: '⚔️', desc: 'Display Board' },
-                    { id: 'bomb-pass', label: 'Bomb Pass', icon: '💣', desc: 'Turn Potato' },
-                    { id: 'type-or-die', label: 'Type or Die', icon: '🌋', desc: 'Elimination' },
-                    { id: 'police-chase', label: 'Police Chase', icon: '🚨', desc: 'Hot Pursuit' },
-                    { id: 'laser-shooter', label: 'Laser Shooter', icon: '🚀', desc: 'Space Turret' },
-                    { id: 'keydash-race', label: 'KeyDash Racer', icon: '🏎️', desc: 'Track Sprint' }
+                    { id: 'keydash-race', label: 'KeyDash Racing', icon: '🏎️', desc: 'Speedway Race with Friends' },
+                    { id: 'bomb-pass', label: 'Hot Potato', icon: '💣', desc: 'Turn-Based Bomb Passing' },
+                    { id: 'word-blitz', label: 'Fastest Word', icon: '⚡', desc: 'Simultaneous Speed & Scores' }
                   ].map((m) => (
                     <button
                       key={m.id}

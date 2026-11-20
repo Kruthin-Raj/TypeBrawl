@@ -14,6 +14,8 @@ export class GameEngine {
   private usedWords: Set<string> = new Set();
   private timerHandle: NodeJS.Timeout | null = null;
   private countdownHandle: NodeJS.Timeout | null = null;
+  private roundEndHandle: NodeJS.Timeout | null = null;
+  private botTimeouts: NodeJS.Timeout[] = [];
   private onGameOverCallback: (room: RoomState) => void;
 
   constructor(
@@ -27,11 +29,27 @@ export class GameEngine {
   }
 
   public startGame(): void {
-    if (this.room.status === 'in-game' || this.room.status === 'countdown') return;
+    if (this.room.status === 'countdown') return;
+
+    if (this.timerHandle) {
+      clearTimeout(this.timerHandle);
+      this.timerHandle = null;
+    }
+    if (this.countdownHandle) {
+      clearInterval(this.countdownHandle);
+      this.countdownHandle = null;
+    }
+    if (this.roundEndHandle) {
+      clearTimeout(this.roundEndHandle);
+      this.roundEndHandle = null;
+    }
+    this.botTimeouts.forEach(clearTimeout);
+    this.botTimeouts = [];
 
     this.room.status = 'countdown';
     this.room.currentRound = 0;
     this.room.history = [];
+    this.room.lastRoundResult = undefined;
     this.usedWords.clear();
 
     // Reset player scores and status for new game
@@ -54,7 +72,10 @@ export class GameEngine {
       if (count > 0) {
         this.io.to(this.room.code).emit('game:countdown', count);
       } else {
-        if (this.countdownHandle) clearInterval(this.countdownHandle);
+        if (this.countdownHandle) {
+          clearInterval(this.countdownHandle);
+          this.countdownHandle = null;
+        }
         this.startNextRound();
       }
     }, 1000);
@@ -119,6 +140,48 @@ export class GameEngine {
     this.timerHandle = setTimeout(() => {
       this.endRound();
     }, durationMs);
+
+    // Clear any previous bot typing timers and schedule new AI actions
+    this.botTimeouts.forEach(clearTimeout);
+    this.botTimeouts = [];
+
+    const activeBots = Object.values(this.room.players).filter((p) => p.isBot && p.lives > 0);
+    if (activeBots.length > 0) {
+      if (this.room.settings.mode === 'bomb-pass') {
+        // If current turn player is a bot, simulate typing to pass before detonation
+        if (this.room.currentTurnPlayerId) {
+          const currentBot = this.room.players[this.room.currentTurnPlayerId];
+          if (currentBot && currentBot.isBot) {
+            const timeLimitMs = this.room.settings.timerSec * 1000;
+            // 75% chance bot solves before detonation, 25% chance it detonates on bot
+            const willSolve = Math.random() < 0.75;
+            if (willSolve) {
+              const delay = Math.max(1200, Math.min(timeLimitMs - 700, 1600 + Math.random() * 2000));
+              const t = setTimeout(() => {
+                if (this.room.status === 'in-game' && this.room.currentTurnPlayerId === currentBot.id) {
+                  this.handleSubmit(currentBot.id, this.room.currentWord);
+                }
+              }, delay);
+              this.botTimeouts.push(t);
+            }
+          }
+        }
+      } else {
+        // keydash-race, word-blitz, type-or-die: each bot types at realistic cadence
+        activeBots.forEach((bot) => {
+          const timeLimitMs = this.room.settings.timerSec * 1000;
+          const baseDelay = (this.room.currentWord.length * 280) + (Math.random() * 1600 - 300);
+          const delay = Math.max(1100, Math.min(timeLimitMs - 500, baseDelay));
+
+          const t = setTimeout(() => {
+            if (this.room.status === 'in-game' && bot.status === 'typing' && bot.lives > 0) {
+              this.handleSubmit(bot.id, this.room.currentWord);
+            }
+          }, delay);
+          this.botTimeouts.push(t);
+        });
+      }
+    }
   }
 
   public handleSubmit(
@@ -216,6 +279,19 @@ export class GameEngine {
           if (this.room.settings.mode === 'bomb-pass') {
             if (p.id === this.room.currentTurnPlayerId) {
               p.lives -= 1;
+              const bombMsg = p.lives <= 0
+                ? `💥 BOOM! The bomb detonated on ${p.nickname}! 💀 ELIMINATED!`
+                : `💥 BOOM! The bomb detonated on ${p.nickname}! (-1 Life ❤️, ${p.lives} left)`;
+              
+              this.io.to(this.room.code).emit('chat:message', {
+                id: `sys-${Date.now()}-${p.id}`,
+                senderId: 'system',
+                senderName: 'BOMB PASS',
+                text: bombMsg,
+                timestamp: Date.now(),
+                isSystem: true
+              });
+
               if (p.lives <= 0) {
                 p.status = 'eliminated';
                 eliminated.push(p.id);
@@ -223,6 +299,19 @@ export class GameEngine {
             }
           } else if (this.room.settings.mode === 'type-or-die') {
             p.lives -= 1;
+            const lavaMsg = p.lives <= 0
+              ? `🌋 The rising lava engulfed ${p.nickname}! 💀 ELIMINATED!`
+              : `🌋 Lava touched ${p.nickname}! (-1 Life ❤️, ${p.lives} left)`;
+
+            this.io.to(this.room.code).emit('chat:message', {
+              id: `sys-${Date.now()}-${p.id}`,
+              senderId: 'system',
+              senderName: 'TYPE OR DIE',
+              text: lavaMsg,
+              timestamp: Date.now(),
+              isSystem: true
+            });
+
             if (p.lives <= 0) {
               p.status = 'eliminated';
               eliminated.push(p.id);
@@ -249,14 +338,27 @@ export class GameEngine {
     this.broadcastState();
 
     // Wait 3.5 seconds to show round result splash on display board before starting next round
-    setTimeout(() => {
+    if (this.roundEndHandle) clearTimeout(this.roundEndHandle);
+    this.roundEndHandle = setTimeout(() => {
       this.startNextRound();
     }, 3500);
   }
 
   private finishGame(): void {
-    if (this.timerHandle) clearTimeout(this.timerHandle);
-    if (this.countdownHandle) clearInterval(this.countdownHandle);
+    if (this.timerHandle) {
+      clearTimeout(this.timerHandle);
+      this.timerHandle = null;
+    }
+    if (this.countdownHandle) {
+      clearInterval(this.countdownHandle);
+      this.countdownHandle = null;
+    }
+    if (this.roundEndHandle) {
+      clearTimeout(this.roundEndHandle);
+      this.roundEndHandle = null;
+    }
+    this.botTimeouts.forEach(clearTimeout);
+    this.botTimeouts = [];
 
     this.room.status = 'game-over';
 
@@ -268,8 +370,20 @@ export class GameEngine {
   }
 
   public stop(): void {
-    if (this.timerHandle) clearTimeout(this.timerHandle);
-    if (this.countdownHandle) clearInterval(this.countdownHandle);
+    if (this.timerHandle) {
+      clearTimeout(this.timerHandle);
+      this.timerHandle = null;
+    }
+    if (this.countdownHandle) {
+      clearInterval(this.countdownHandle);
+      this.countdownHandle = null;
+    }
+    if (this.roundEndHandle) {
+      clearTimeout(this.roundEndHandle);
+      this.roundEndHandle = null;
+    }
+    this.botTimeouts.forEach(clearTimeout);
+    this.botTimeouts = [];
   }
 
   private broadcastState(): void {

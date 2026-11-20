@@ -11,6 +11,8 @@ interface DisplayBoardProps {
   roundStartTime: number;
   roundEndTime: number;
   status: 'lobby' | 'countdown' | 'in-game' | 'round-end' | 'game-over';
+  mode?: 'word-blitz' | 'bomb-pass' | 'type-or-die' | 'keydash-race';
+  currentTurnPlayerName?: string;
   isCurrentTurn?: boolean;
   onSubmit: (word: string) => Promise<{ correct: boolean; scoreDelta: number; message?: string }>;
   isSubmitted: boolean;
@@ -25,6 +27,8 @@ export const DisplayBoard: React.FC<DisplayBoardProps> = ({
   roundStartTime,
   roundEndTime,
   status,
+  mode = 'word-blitz',
+  currentTurnPlayerName,
   isCurrentTurn = true,
   onSubmit,
   isSubmitted,
@@ -138,6 +142,34 @@ export const DisplayBoard: React.FC<DisplayBoardProps> = ({
 
         {status === 'in-game' && (
           <>
+            {mode === 'bomb-pass' && (
+              isCurrentTurn ? (
+                <div className="flex items-center gap-2 px-3 py-1 rounded-xl bg-rose-500/25 border-2 border-rose-500 text-rose-300 font-mono font-black text-xs uppercase animate-pulse mb-1.5 z-10 shadow-[0_0_15px_rgba(239,68,68,0.4)]">
+                  <span className="text-sm animate-bounce">💣</span>
+                  <span>YOU HOLD THE BOMB! TYPE WORD & HIT ENTER TO PASS!</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 px-3 py-1 rounded-xl bg-slate-900 border-2 border-slate-800 text-amber-400 font-mono font-bold text-xs uppercase mb-1.5 z-10">
+                  <span className="text-sm">💣</span>
+                  <span>{currentTurnPlayerName || 'Another player'} holds the bomb! Stand by...</span>
+                </div>
+              )
+            )}
+
+            {mode === 'keydash-race' && (
+              <div className="flex items-center gap-2 px-3 py-1 rounded-xl bg-amber-500/20 border-2 border-amber-400 text-amber-300 font-mono font-bold text-xs uppercase mb-1.5 z-10 animate-pulse">
+                <span>🏎️</span>
+                <span>SPEEDWAY SPRINT! Type word fast to burst your car ahead with nitro!</span>
+              </div>
+            )}
+
+            {mode === 'type-or-die' && (
+              <div className="flex items-center gap-2 px-3 py-1 rounded-xl bg-orange-950/60 border-2 border-orange-500 text-orange-300 font-mono font-bold text-xs uppercase mb-1.5 z-10 animate-pulse">
+                <span>🌋</span>
+                <span>RISING LAVA! Type the word before time runs out!</span>
+              </div>
+            )}
+
             <span className="text-[11px] uppercase font-mono font-extrabold tracking-widest text-slate-400 mb-1 z-10">
               TARGET WORD • PRESS ENTER TO SUBMIT
             </span>
@@ -147,9 +179,9 @@ export const DisplayBoard: React.FC<DisplayBoardProps> = ({
               {word}
             </h2>
 
-            {!isCurrentTurn && (
+            {mode === 'bomb-pass' && !isCurrentTurn && (
               <span className="mt-1 text-[11px] font-mono font-bold text-amber-400 bg-amber-950/70 px-3 py-1 rounded-lg border border-amber-500/40 z-10">
-                ⏳ Waiting for active player...
+                ⏳ Stand by for pass from {currentTurnPlayerName || 'active player'}...
               </span>
             )}
           </>
@@ -210,11 +242,19 @@ export const DisplayBoard: React.FC<DisplayBoardProps> = ({
             disabled={status !== 'in-game' || isSubmitted || isEliminated || !isCurrentTurn}
             placeholder={
               isEliminated
-                ? 'Knocked out (Spectating)'
+                ? '💀 Knocked out (Spectating Arena)'
                 : isSubmitted
-                ? 'Submitted! Waiting for round end...'
-                : !isCurrentTurn
-                ? 'Not your turn...'
+                ? mode === 'bomb-pass'
+                  ? '💣 Passed the bomb! Waiting for next turn...'
+                  : 'Submitted! Waiting for round end...'
+                : mode === 'bomb-pass' && !isCurrentTurn
+                ? `💣 ${currentTurnPlayerName || 'Active player'} has the bomb...`
+                : mode === 'bomb-pass' && isCurrentTurn
+                ? '💣 YOU HAVE THE BOMB! Type and hit ENTER to pass!'
+                : mode === 'keydash-race'
+                ? '🏎️ Type word and hit ENTER for Nitro burst!'
+                : mode === 'type-or-die'
+                ? '🌋 Type word before lava rises!'
                 : 'Type word and hit ENTER...'
             }
             className={`w-full py-3.5 pl-5 pr-28 rounded-xl font-mono font-bold text-base sm:text-lg border-2 shadow-retro focus:outline-none transition-all placeholder:text-slate-600 ${

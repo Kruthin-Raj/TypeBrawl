@@ -19,15 +19,10 @@ export interface Player {
   lastSubmitTimeMs?: number;
   isHost: boolean;
   isReady: boolean;
+  isBot?: boolean;
 }
 
-export type GameMode =
-  | 'word-blitz'
-  | 'bomb-pass'
-  | 'type-or-die'
-  | 'police-chase'
-  | 'laser-shooter'
-  | 'keydash-race';
+export type GameMode = 'keydash-race' | 'bomb-pass' | 'word-blitz' | 'type-or-die';
 export type WordDifficulty = 'easy' | 'medium' | 'hard' | 'mixed' | 'gaming' | 'code';
 
 export interface RoomSettings {
@@ -39,6 +34,7 @@ export interface RoomSettings {
   rounds: number; // e.g. 10, 15, 20
   maxPlayers: number; // 2 to 12
   isPublic: boolean;
+  withBots?: boolean;
 }
 
 export type RoomStatus = 'lobby' | 'countdown' | 'in-game' | 'round-end' | 'game-over';
@@ -105,8 +101,10 @@ export interface PracticeLesson {
 
 // Client-to-Server Socket Events
 export interface ClientToServerEvents {
-  'room:create': (payload: { settings: Omit<RoomSettings, 'roomCode'>; player: { nickname: string; avatar: AvatarConfig } }, callback: (res: { success: boolean; roomCode?: string; error?: string }) => void) => void;
+  'room:create': (payload: { settings: Omit<RoomSettings, 'roomCode'> & { withBots?: boolean }; player: { nickname: string; avatar: AvatarConfig } }, callback: (res: { success: boolean; roomCode?: string; error?: string }) => void) => void;
   'room:join': (payload: { roomCode: string; password?: string; player: { nickname: string; avatar: AvatarConfig } }, callback: (res: { success: boolean; error?: string }) => void) => void;
+  'room:leave': () => void;
+  'room:toggle_bots': () => void;
   'room:list': (callback: (rooms: PublicRoomSummary[]) => void) => void;
   'room:ready': () => void;
   'room:start': () => void;

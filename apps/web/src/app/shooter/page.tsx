@@ -66,10 +66,72 @@ const HULL_COLORS = [
   { name: 'Crimson Fury', hex: '#EF4444' }
 ];
 
+export interface ShooterSector {
+  sector: number;
+  title: string;
+  environment: string;
+  waves: number;
+  baseSpeed: number;
+  enemyClasses: string;
+  badgeBg: string;
+}
+
+const SHOOTER_SECTORS: ShooterSector[] = [
+  {
+    sector: 1,
+    title: 'Asteroid Belt Recon',
+    environment: 'Outer Planetary Rings',
+    waves: 3,
+    baseSpeed: 0.35,
+    enemyClasses: 'Scout Probes & Light Drones',
+    badgeBg: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/40'
+  },
+  {
+    sector: 2,
+    title: 'Deep Void Nebula',
+    environment: 'Ionized Dust Clouds',
+    waves: 3,
+    baseSpeed: 0.48,
+    enemyClasses: 'Corvettes & Plasma Cruisers',
+    badgeBg: 'bg-purple-500/20 text-purple-400 border-purple-500/40'
+  },
+  {
+    sector: 3,
+    title: 'Alien Fortress Outpost',
+    environment: 'Moon Defense Base',
+    waves: 4,
+    baseSpeed: 0.62,
+    enemyClasses: 'Heavy Frigates & Torpedo Destroyers',
+    badgeBg: 'bg-amber-500/20 text-amber-400 border-amber-500/40'
+  },
+  {
+    sector: 4,
+    title: 'Quantum Hyper-Rift',
+    environment: 'Event Horizon Warp Rift',
+    waves: 4,
+    baseSpeed: 0.75,
+    enemyClasses: 'Stealth Gunships & Void Reapers',
+    badgeBg: 'bg-rose-500/20 text-rose-400 border-rose-500/40'
+  },
+  {
+    sector: 5,
+    title: 'Mothership Core Citadel',
+    environment: 'Flagship Reactor Core',
+    waves: 5,
+    baseSpeed: 0.90,
+    enemyClasses: 'Colossus Dreadnoughts & Swarm Overlords',
+    badgeBg: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40'
+  }
+];
+
 export default function ArcadeShooterPage() {
   const [gameState, setGameState] = useState<'ready' | 'playing' | 'game-over' | 'victory'>('ready');
   const [isPaused, setIsPaused] = useState(false);
   const [isControlsModalOpen, setIsControlsModalOpen] = useState(false);
+
+  // Progressive Sector Selection (1 to 5)
+  const [currentSector, setCurrentSector] = useState(1);
+  const activeSector = SHOOTER_SECTORS[currentSector - 1] || SHOOTER_SECTORS[0];
 
   const [difficulty, setDifficulty] = useState<'cadet' | 'commander' | 'ace'>('commander');
   const [hullColor, setHullColor] = useState('#06B6D4');
@@ -80,7 +142,7 @@ export default function ArcadeShooterPage() {
   const [score, setScore] = useState(0);
   const [shields, setShields] = useState(3);
   const [wave, setWave] = useState(1);
-  const [maxWaves] = useState(3);
+  const maxWaves = activeSector.waves;
   const [streak, setStreak] = useState(0);
 
   // Active enemies, projectiles & explosions
@@ -94,10 +156,10 @@ export default function ArcadeShooterPage() {
   const animFrameRef = useRef<number | null>(null);
   const hiddenInputRef = useRef<HTMLInputElement>(null);
 
-  const baseSpeed = difficulty === 'cadet' ? 0.35 : difficulty === 'commander' ? 0.58 : 0.88;
+  const baseSpeed = activeSector.baseSpeed * (difficulty === 'cadet' ? 0.8 : difficulty === 'commander' ? 1.0 : 1.25);
 
   // Initialize fresh game
-  const initGame = () => {
+  const initGame = (overrideSector?: number | any) => {
     setScore(0);
     setShields(3);
     setWave(1);
@@ -120,9 +182,12 @@ export default function ArcadeShooterPage() {
       if (spawnRef.current) clearInterval(spawnRef.current);
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
     };
-  }, [difficulty]);
+  }, [difficulty, currentSector]);
 
-  const startGame = () => {
+  const startGame = (overrideSector?: number | any) => {
+    if (typeof overrideSector === 'number') {
+      setCurrentSector(overrideSector);
+    }
     sound.playGo();
     setGameState('playing');
     setIsPaused(false);
@@ -398,12 +463,16 @@ export default function ArcadeShooterPage() {
             setScore((s) => s + pointsGain);
             setStreak((st) => st + 1);
 
-            // Progress wave
+            // Progress wave & sector victory
             setScore((currentScore) => {
-              if (currentScore > 650 && wave === 2) setWave(3);
-              else if (currentScore > 260 && wave === 1) setWave(2);
-              else if (currentScore >= 1350) {
-                // Victory!
+              const sectorTarget = activeSector.waves * 450;
+              const waveThreshold = sectorTarget / activeSector.waves;
+              const nextWave = Math.min(activeSector.waves, Math.floor(currentScore / waveThreshold) + 1);
+              if (nextWave > wave) {
+                setWave(nextWave);
+              }
+              if (currentScore >= sectorTarget) {
+                // Sector cleared!
                 setGameState('victory');
                 confetti({ particleCount: 110, spread: 90, origin: { y: 0.6 } });
               }
@@ -533,9 +602,31 @@ export default function ArcadeShooterPage() {
             </div>
           </div>
 
-          {/* Controls: Difficulty + Sound + Pause + Options + Exit */}
-          <div className="flex items-center gap-2">
+          {/* Controls: Sector Selector + Difficulty + Sound + Pause + Options + Exit */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Sector Selector 1 to 5 */}
             <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border-2 border-slate-900 text-xs font-mono font-bold">
+              {SHOOTER_SECTORS.map((sec) => (
+                <button
+                  key={sec.sector}
+                  onClick={() => {
+                    setCurrentSector(sec.sector);
+                    initGame(sec.sector);
+                  }}
+                  disabled={gameState === 'playing'}
+                  className={`px-2 py-1 rounded-lg uppercase tracking-wider transition-all ${
+                    currentSector === sec.sector
+                      ? 'bg-cyan-400 text-slate-950 font-black shadow-retro-sm'
+                      : 'text-slate-400 hover:text-white disabled:opacity-40'
+                  }`}
+                  title={`${sec.title}: ${sec.environment}`}
+                >
+                  S{sec.sector}
+                </button>
+              ))}
+            </div>
+
+            <div className="hidden sm:flex items-center gap-1 bg-slate-950 p-1 rounded-xl border-2 border-slate-900 text-xs font-mono font-bold">
               {(['cadet', 'commander', 'ace'] as const).map((tier) => (
                 <button
                   key={tier}
@@ -543,7 +634,7 @@ export default function ArcadeShooterPage() {
                   disabled={gameState === 'playing'}
                   className={`px-2.5 py-1 rounded-lg uppercase tracking-wider transition-all ${
                     difficulty === tier
-                      ? 'bg-cyan-400 text-slate-950 font-black shadow-retro-sm'
+                      ? 'bg-zinc-700 text-white font-black shadow-retro-sm'
                       : 'text-slate-400 hover:text-white disabled:opacity-40'
                   }`}
                 >
@@ -831,17 +922,23 @@ export default function ArcadeShooterPage() {
           {/* Pre-game Screen */}
           {gameState === 'ready' && (
             <div className="absolute inset-0 bg-slate-950/85 backdrop-blur-sm flex flex-col items-center justify-center text-center p-6 z-30">
+              <span className="px-3 py-1 rounded-full text-xs font-mono font-bold uppercase tracking-wider bg-cyan-400/20 text-cyan-300 border border-cyan-400/40 mb-2">
+                SECTOR {currentSector}: {activeSector.title}
+              </span>
               <h3 className="text-3xl font-mono font-black text-cyan-400 mb-2">
                 DEFENSE TURRET ONLINE
               </h3>
-              <p className="text-xs font-mono text-slate-300 max-w-sm mb-5 leading-relaxed">
-                Type letters matching the enemy badges to lock-on. Destroy scouts, cruisers, and heavy dreadnoughts with explosive torpedoes before they breach the perimeter!
+              <p className="text-xs font-mono text-slate-300 max-w-sm mb-2 leading-relaxed">
+                {activeSector.environment} • Targets: {activeSector.enemyClasses}
+              </p>
+              <p className="text-[11px] font-mono text-slate-400 max-w-sm mb-5 leading-relaxed">
+                Type letters matching enemy badges to lock-on. Destroy scouts, cruisers, and heavy dreadnoughts before they breach your perimeter!
               </p>
               <button
-                onClick={startGame}
+                onClick={() => startGame()}
                 className="px-8 py-3.5 rounded-xl font-mono font-black text-sm uppercase tracking-wider bg-cyan-400 hover:bg-cyan-300 text-slate-950 border-2 border-black shadow-retro active:translate-x-[2px] active:translate-y-[2px]"
               >
-                ENGAGE DEFENSE 🚀
+                ENGAGE SECTOR {currentSector} 🚀
               </button>
             </div>
           )}
@@ -864,7 +961,7 @@ export default function ArcadeShooterPage() {
                   Main Menu
                 </Link>
                 <button
-                  onClick={startGame}
+                  onClick={() => startGame()}
                   className="flex items-center gap-2 px-8 py-3 rounded-xl font-mono font-black text-xs uppercase bg-amber-400 hover:bg-amber-300 text-slate-950 border-2 border-black shadow-retro active:translate-x-[2px] active:translate-y-[2px]"
                 >
                   <RotateCcw className="w-4 h-4" /> RETRY MISSION
@@ -876,12 +973,15 @@ export default function ArcadeShooterPage() {
           {/* Victory Screen */}
           {gameState === 'victory' && (
             <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-sm flex flex-col items-center justify-center text-center p-6 z-30 animate-fadeIn">
-              <span className="text-5xl mb-2">👑</span>
+              <span className="text-5xl mb-2">🏆</span>
+              <span className="px-3 py-1 rounded-full text-xs font-mono font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 mb-2">
+                SECTOR {currentSector} LIBERATED!
+              </span>
               <h3 className="text-2xl font-mono font-black text-emerald-400 mb-1">
-                ALL SECTORS CLEARED! VICTORY!
+                {activeSector.title}
               </h3>
               <p className="text-xs font-mono text-slate-300 mb-4">
-                Total Score: <span className="text-amber-400 font-bold">{score} PTS</span>
+                Sector Defense Score: <span className="text-amber-400 font-bold">{score} PTS</span>
               </p>
               <div className="flex items-center gap-3">
                 <Link
@@ -890,12 +990,25 @@ export default function ArcadeShooterPage() {
                 >
                   Main Menu
                 </Link>
-                <button
-                  onClick={startGame}
-                  className="flex items-center gap-2 px-8 py-3 rounded-xl font-mono font-black text-xs uppercase bg-emerald-500 hover:bg-emerald-400 text-slate-950 border-2 border-black shadow-retro active:translate-x-[2px] active:translate-y-[2px]"
-                >
-                  <RotateCcw className="w-4 h-4" /> DEFEND AGAIN
-                </button>
+                {currentSector < 5 ? (
+                  <button
+                    onClick={() => {
+                      const nextSec = currentSector + 1;
+                      setCurrentSector(nextSec);
+                      startGame(nextSec);
+                    }}
+                    className="flex items-center gap-2 px-8 py-3 rounded-xl font-mono font-black text-xs uppercase bg-amber-400 hover:bg-amber-300 text-slate-950 border-2 border-black shadow-retro active:translate-x-[2px] active:translate-y-[2px]"
+                  >
+                    NEXT SECTOR {currentSector + 1} ▶
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => startGame(1)}
+                    className="flex items-center gap-2 px-8 py-3 rounded-xl font-mono font-black text-xs uppercase bg-emerald-500 hover:bg-emerald-400 text-slate-950 border-2 border-black shadow-retro active:translate-x-[2px] active:translate-y-[2px]"
+                  >
+                    <RotateCcw className="w-4 h-4" /> ALL SECTORS CLEARED! REPLAY S1
+                  </button>
+                )}
               </div>
             </div>
           )}

@@ -7,9 +7,29 @@ import {
   ChatMessage,
   ClientToServerEvents,
   ServerToClientEvents,
-  AvatarConfig
+  AvatarConfig,
+  GameMode
 } from '@typefest/shared';
 import { GameEngine } from '../engine/GameEngine.js';
+
+const BOT_PRESETS = [
+  {
+    name: 'TurboBot',
+    avatar: { color: '#06B6D4', eyes: 2, mouth: 1, accessory: 3 }
+  },
+  {
+    name: 'PixelTyper',
+    avatar: { color: '#EC4899', eyes: 1, mouth: 2, accessory: 2 }
+  },
+  {
+    name: 'CyberSwift',
+    avatar: { color: '#10B981', eyes: 4, mouth: 0, accessory: 1 }
+  },
+  {
+    name: 'NeonRacer',
+    avatar: { color: '#8B5CF6', eyes: 3, mouth: 3, accessory: 4 }
+  }
+];
 
 export class RoomManager {
   private io: Server<ClientToServerEvents, ServerToClientEvents>;
@@ -35,6 +55,11 @@ export class RoomManager {
     rawSettings: Omit<RoomSettings, 'roomCode'>,
     playerData: { nickname: string; avatar: AvatarConfig }
   ): { success: boolean; roomCode?: string; error?: string } {
+    // If socket is already in a room, leave it first to prevent ghost room bugs
+    if (this.socketToRoom.has(socket.id)) {
+      this.leaveRoom(socket);
+    }
+
     const code = this.generateRoomCode();
     const playerId = socket.id;
 
@@ -51,8 +76,14 @@ export class RoomManager {
       isReady: true
     };
 
+    const validModes: GameMode[] = ['keydash-race', 'bomb-pass', 'word-blitz', 'type-or-die'];
+    const validatedMode: GameMode = validModes.includes(rawSettings.mode as GameMode)
+      ? (rawSettings.mode as GameMode)
+      : 'keydash-race';
+
     const roomSettings: RoomSettings = {
       ...rawSettings,
+      mode: validatedMode,
       roomCode: code,
       timerSec: Math.max(3, Math.min(rawSettings.timerSec || 8, 30)),
       rounds: Math.max(5, Math.min(rawSettings.rounds || 10, 50)),
@@ -71,6 +102,26 @@ export class RoomManager {
       roundEndTime: 0,
       history: []
     };
+
+    // If Quick Play requested bots or withBots is enabled, spawn 4 AI bots into the room
+    if (rawSettings.withBots) {
+      BOT_PRESETS.forEach((botPreset, i) => {
+        const botId = `bot-${code}-${i + 1}`;
+        roomState.players[botId] = {
+          id: botId,
+          socketId: botId,
+          nickname: botPreset.name,
+          avatar: botPreset.avatar,
+          score: 0,
+          streak: 0,
+          lives: 3,
+          status: 'idle',
+          isHost: false,
+          isReady: true,
+          isBot: true
+        };
+      });
+    }
 
     this.rooms.set(code, roomState);
     this.socketToRoom.set(socket.id, code);
@@ -104,6 +155,11 @@ export class RoomManager {
 
     if (Object.keys(room.players).length >= room.settings.maxPlayers) {
       return { success: false, error: 'Room is full' };
+    }
+
+    // If socket is already in a room, leave it first to prevent ghost room bugs
+    if (this.socketToRoom.has(socket.id)) {
+      this.leaveRoom(socket);
     }
 
     const playerId = socket.id;
@@ -141,6 +197,54 @@ export class RoomManager {
     return { success: true };
   }
 
+  public leaveRoom(socket: Socket<ClientToServerEvents, ServerToClientEvents>): void {
+    const socketId = socket.id;
+    const code = this.socketToRoom.get(socketId);
+    if (!code) return;
+
+    this.socketToRoom.delete(socketId);
+    socket.leave(code);
+
+    const room = this.rooms.get(code);
+    if (!room) return;
+
+    const leavingPlayer = room.players[socketId];
+    delete room.players[socketId];
+
+    const remainingHumans = Object.values(room.players).filter((p) => !p.isBot);
+
+    if (remainingHumans.length === 0) {
+      // Room has no human players left, clean up engine and delete room immediately
+      const engine = this.engines.get(code);
+      if (engine) engine.stop();
+      this.engines.delete(code);
+      this.rooms.delete(code);
+      return;
+    }
+
+    // If host left, elect new host from remaining humans
+    if (room.hostId === socketId) {
+      room.hostId = remainingHumans[0].id;
+      room.players[room.hostId].isHost = true;
+      room.players[room.hostId].isReady = true;
+    }
+
+    this.io.to(code).emit('room:player_left', socketId);
+    this.io.to(code).emit('room:state', room);
+
+    if (leavingPlayer) {
+      const leaveMsg: ChatMessage = {
+        id: `sys-${Date.now()}`,
+        senderId: 'system',
+        senderName: 'TypeFest',
+        text: `${leavingPlayer.nickname} left the room.`,
+        timestamp: Date.now(),
+        isSystem: true
+      };
+      this.io.to(code).emit('chat:message', leaveMsg);
+    }
+  }
+
   public handleDisconnect(socketId: string): void {
     const code = this.socketToRoom.get(socketId);
     if (!code) return;
@@ -152,8 +256,10 @@ export class RoomManager {
     const leavingPlayer = room.players[socketId];
     delete room.players[socketId];
 
-    if (Object.keys(room.players).length === 0) {
-      // Room empty, clean up
+    const remainingHumans = Object.values(room.players).filter((p) => !p.isBot);
+
+    if (remainingHumans.length === 0) {
+      // Room empty of human players, clean up
       const engine = this.engines.get(code);
       if (engine) engine.stop();
       this.engines.delete(code);
@@ -161,10 +267,9 @@ export class RoomManager {
       return;
     }
 
-    // If host left, elect new host
+    // If host left, elect new host from humans
     if (room.hostId === socketId) {
-      const remainingIds = Object.keys(room.players);
-      room.hostId = remainingIds[0];
+      room.hostId = remainingHumans[0].id;
       room.players[room.hostId].isHost = true;
       room.players[room.hostId].isReady = true;
     }
@@ -195,6 +300,43 @@ export class RoomManager {
     if (!player) return;
 
     player.isReady = !player.isReady;
+    this.io.to(code).emit('room:state', room);
+  }
+
+  public toggleBots(socketId: string): void {
+    const code = this.socketToRoom.get(socketId);
+    if (!code) return;
+    const room = this.rooms.get(code);
+    if (!room || room.hostId !== socketId || room.status !== 'lobby') return;
+
+    const existingBots = Object.values(room.players).filter((p) => p.isBot);
+    if (existingBots.length > 0) {
+      // Remove all bots
+      existingBots.forEach((b) => {
+        delete room.players[b.id];
+      });
+      room.settings.withBots = false;
+    } else {
+      // Add 4 bots
+      BOT_PRESETS.forEach((botPreset, i) => {
+        const botId = `bot-${code}-${i + 1}`;
+        room.players[botId] = {
+          id: botId,
+          socketId: botId,
+          nickname: botPreset.name,
+          avatar: botPreset.avatar,
+          score: 0,
+          streak: 0,
+          lives: 3,
+          status: 'idle',
+          isHost: false,
+          isReady: true,
+          isBot: true
+        };
+      });
+      room.settings.withBots = true;
+    }
+
     this.io.to(code).emit('room:state', room);
   }
 
