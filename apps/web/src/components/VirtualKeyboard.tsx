@@ -108,7 +108,7 @@ export const VirtualKeyboard: React.FC<VirtualKeyboardProps> = ({
       <div className="flex flex-col gap-1.5">
         {KEYBOARD_ROWS.map((row, rIdx) => (
           <div key={rIdx} className="flex justify-center gap-1.5">
-            {row.map((key) => {
+            {row.map((key, kIdx) => {
               const isTarget = normKey === key;
               const fingerInfo = FINGER_MAP[key];
 
@@ -132,7 +132,7 @@ export const VirtualKeyboard: React.FC<VirtualKeyboardProps> = ({
 
               return (
                 <div
-                  key={key}
+                  key={`${key}-${kIdx}`}
                   className={`h-9 sm:h-11 ${width} flex items-center justify-center rounded-lg border-2 text-xs sm:text-sm font-bold transition-all duration-150 ${keyStyle}`}
                 >
                   {key}
