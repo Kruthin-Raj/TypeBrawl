@@ -50,6 +50,7 @@ export class GameEngine {
     this.room.currentRound = 0;
     this.room.history = [];
     this.room.lastRoundResult = undefined;
+    this.room.currentTurnPlayerId = undefined;
     this.usedWords.clear();
 
     // Reset player scores and status for new game
@@ -58,6 +59,10 @@ export class GameEngine {
       p.streak = 0;
       p.lives = 3;
       p.status = 'idle';
+      p.progressPercent = 0;
+      p.wpm = 0;
+      p.accuracy = 100;
+      p.finishRank = undefined;
       p.lastSubmitTimeMs = undefined;
     });
 
@@ -438,6 +443,8 @@ export class GameEngine {
 
     const eliminated: string[] = [];
     const submissions: RoundResult['submissions'] = [];
+    let explodedPlayerId: string | undefined;
+    let explodedPlayerName: string | undefined;
 
     Object.values(this.room.players).forEach((p) => {
       if (p.lives > 0) {
@@ -457,6 +464,8 @@ export class GameEngine {
           // In bomb-pass, the person holding the bomb loses a life
           if (this.room.settings.mode === 'bomb-pass') {
             if (p.id === this.room.currentTurnPlayerId) {
+              explodedPlayerId = p.id;
+              explodedPlayerName = p.nickname;
               p.lives -= 1;
               const bombMsg = p.lives <= 0
                 ? `💥 BOOM! The bomb detonated on ${p.nickname}! 💀 ELIMINATED!`
@@ -507,7 +516,9 @@ export class GameEngine {
       round: this.room.currentRound,
       word: this.room.currentWord,
       submissions,
-      eliminatedPlayerIds: eliminated
+      eliminatedPlayerIds: eliminated,
+      explodedPlayerId,
+      explodedPlayerName
     };
 
     this.room.lastRoundResult = roundResult;
@@ -546,6 +557,32 @@ export class GameEngine {
     this.io.to(this.room.code).emit('game:game_over', standings);
     this.broadcastState();
     this.onGameOverCallback(this.room);
+  }
+
+  public resetToLobby(): void {
+    this.stop();
+
+    this.room.status = 'lobby';
+    this.room.currentRound = 0;
+    this.room.history = [];
+    this.room.lastRoundResult = undefined;
+    this.room.currentTurnPlayerId = undefined;
+    this.usedWords.clear();
+
+    Object.values(this.room.players).forEach((p) => {
+      p.score = 0;
+      p.streak = 0;
+      p.lives = 3;
+      p.status = 'idle';
+      p.progressPercent = 0;
+      p.wpm = 0;
+      p.accuracy = 100;
+      p.finishRank = undefined;
+      p.lastSubmitTimeMs = undefined;
+      p.isReady = !!(p.isHost || p.isBot);
+    });
+
+    this.broadcastState();
   }
 
   public stop(): void {

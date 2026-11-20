@@ -84,6 +84,11 @@ export const PlayerRoster: React.FC<PlayerRosterProps> = ({
                         💣 BOMB
                       </span>
                     )}
+                    {player.lives !== undefined && player.lives <= 0 && (
+                      <span className="text-[9px] font-mono font-black bg-purple-950/80 text-purple-300 px-1.5 py-0.5 rounded border border-purple-500/50">
+                        👀 SPECTATING
+                      </span>
+                    )}
                   </div>
 
                   <div className="flex items-center gap-2 mt-0.5 text-[10px] font-mono text-slate-400">

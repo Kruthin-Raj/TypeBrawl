@@ -84,9 +84,14 @@ io.on('connection', (socket) => {
     roomManager.toggleBots(socket.id);
   });
 
-  // Start Game
+  // Start Game / Rematch
   socket.on('room:start', () => {
     roomManager.startGame(socket.id);
+  });
+
+  // Return to Lobby
+  socket.on('room:return_to_lobby', () => {
+    roomManager.returnToLobby(socket.id);
   });
 
   // Typing status change

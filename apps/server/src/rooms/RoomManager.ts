@@ -424,7 +424,7 @@ export class RoomManager {
     const code = this.socketToRoom.get(socketId);
     if (!code) return;
     const room = this.rooms.get(code);
-    if (!room || room.status !== 'lobby') return;
+    if (!room || (room.status !== 'lobby' && room.status !== 'game-over')) return;
 
     // Check host authority
     const isHost = room.hostId === socketId || room.players[socketId]?.isHost;
@@ -442,6 +442,51 @@ export class RoomManager {
     }
 
     engine.startGame();
+  }
+
+  public returnToLobby(socketId: string): void {
+    const code = this.socketToRoom.get(socketId);
+    if (!code) return;
+    const room = this.rooms.get(code);
+    if (!room) return;
+
+    // Allow return to lobby if room is in game-over, or if requested by host
+    const isHost = room.hostId === socketId || room.players[socketId]?.isHost;
+    if (room.status !== 'game-over' && !isHost) return;
+
+    let engine = this.engines.get(code);
+    if (engine) {
+      engine.resetToLobby();
+    } else {
+      room.status = 'lobby';
+      room.currentRound = 0;
+      room.history = [];
+      room.lastRoundResult = undefined;
+      room.currentTurnPlayerId = undefined;
+      Object.values(room.players).forEach((p) => {
+        p.score = 0;
+        p.streak = 0;
+        p.lives = 3;
+        p.status = 'idle';
+        p.progressPercent = 0;
+        p.wpm = 0;
+        p.accuracy = 100;
+        p.finishRank = undefined;
+        p.lastSubmitTimeMs = undefined;
+        p.isReady = !!(p.isHost || p.isBot);
+      });
+      this.io.to(code).emit('room:state', room);
+    }
+
+    const sysMsg: ChatMessage = {
+      id: `sys-${Date.now()}`,
+      senderId: 'system',
+      senderName: 'TypeFest',
+      text: `🏠 Room returned to lobby.`,
+      timestamp: Date.now(),
+      isSystem: true
+    };
+    this.io.to(code).emit('chat:message', sysMsg);
   }
 
   public updateRaceProgress(

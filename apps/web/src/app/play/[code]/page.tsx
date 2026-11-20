@@ -9,13 +9,15 @@ import { MultiplayerRacer } from '@/components/MultiplayerRacer';
 import { PlayerRoster } from '@/components/PlayerRoster';
 import { PartyChat } from '@/components/PartyChat';
 import { PodiumModal } from '@/components/PodiumModal';
+import { BombExplosionOverlay } from '@/components/BombExplosionOverlay';
 import { Avatar } from '@/components/Avatar';
 import { getSocket } from '@/lib/socket';
 import { sound } from '@/lib/sound';
 import {
   RoomState,
   ChatMessage,
-  AvatarConfig
+  AvatarConfig,
+  RoundResult
 } from '@typefest/shared';
 import {
   Copy,
@@ -82,6 +84,7 @@ export default function PlayRoomPage() {
   const [myId, setMyId] = useState<string>(() => (typeof window !== 'undefined' ? getSocket().id || '' : ''));
   const [copiedLink, setCopiedLink] = useState(false);
   const [countdownVal, setCountdownVal] = useState<number | null>(null);
+  const [explosionData, setExplosionData] = useState<{ explodedPlayerName?: string; explodedPlayerId?: string } | null>(null);
 
   useEffect(() => {
     const socket = getSocket();
@@ -116,6 +119,12 @@ export default function PlayRoomPage() {
     socket.on('room:state', (newState) => {
       setRoom(newState);
       if (socket.id) setMyId(socket.id);
+      if (newState.status === 'round-end' && newState.settings.mode === 'bomb-pass' && newState.currentTurnPlayerId) {
+        setExplosionData((prev) => prev || {
+          explodedPlayerName: newState.players[newState.currentTurnPlayerId!]?.nickname,
+          explodedPlayerId: newState.currentTurnPlayerId
+        });
+      }
     });
 
     socket.on('chat:message', (msg) => {
@@ -130,14 +139,21 @@ export default function PlayRoomPage() {
     socket.on('game:round_start', () => {
       sound.playGo();
       setCountdownVal(null);
+      setExplosionData(null);
     });
 
     socket.on('game:word_solved', () => {
       sound.playCorrect();
     });
 
-    socket.on('game:round_end', () => {
+    socket.on('game:round_end', (result?: RoundResult) => {
       sound.playExplosion('large');
+      if (result?.explodedPlayerId || result?.explodedPlayerName) {
+        setExplosionData({
+          explodedPlayerName: result.explodedPlayerName,
+          explodedPlayerId: result.explodedPlayerId
+        });
+      }
     });
 
     return () => {
@@ -169,6 +185,11 @@ export default function PlayRoomPage() {
     sound.playGo();
     const socket = getSocket();
     socket.emit('room:start');
+  };
+
+  const handleReturnToLobby = () => {
+    const socket = getSocket();
+    socket.emit('room:return_to_lobby');
   };
 
   const handleSendMessage = (text: string) => {
@@ -264,6 +285,46 @@ export default function PlayRoomPage() {
             </button>
           </div>
         </div>
+
+        {/* SPECTATOR MODE ALERT BANNER */}
+        {isEliminated && room.status !== 'lobby' && (
+          <div className="flex items-center justify-between px-5 py-3 bg-gradient-to-r from-purple-950/90 via-slate-900/90 to-purple-950/90 border-2 border-purple-500/70 rounded-xl shadow-[0_0_20px_rgba(168,85,247,0.35)] animate-in fade-in">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-purple-500/20 border border-purple-400/40 flex items-center justify-center text-xl animate-pulse">
+                👀
+              </div>
+              <div className="flex flex-col">
+                <div className="flex items-center gap-2">
+                  <span className="font-mono font-black text-xs sm:text-sm text-purple-300 uppercase tracking-wider">
+                    SPECTATOR MODE ACTIVE
+                  </span>
+                  <span className="text-[10px] font-mono font-black bg-rose-500/20 text-rose-300 border border-rose-500/40 px-2 py-0.5 rounded">
+                    💀 0 LIVES REMAINING
+                  </span>
+                </div>
+                <span className="text-[11px] font-mono text-slate-400">
+                  You lost all 3 lives! You are watching the remaining players battle for survival. Party chat is active!
+                </span>
+              </div>
+            </div>
+            <div className="hidden sm:flex items-center gap-2">
+              <span className="text-xs font-mono font-bold text-amber-400 bg-slate-950 px-3 py-1.5 rounded-lg border border-slate-800">
+                💬 Live Chat Enabled
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* BOMB EXPLOSION SCREEN ANIMATION OVERLAY */}
+        {explosionData && (
+          <BombExplosionOverlay
+            explodedPlayerName={explosionData.explodedPlayerName}
+            isMe={explosionData.explodedPlayerId === currentSocketId}
+            remainingLives={me?.lives}
+            isEliminated={isEliminated}
+            onAnimationEnd={() => setExplosionData(null)}
+          />
+        )}
 
         {/* LOBBY STATE */}
         {room.status === 'lobby' && (
@@ -509,11 +570,9 @@ export default function PlayRoomPage() {
         {room.status === 'game-over' && (
           <PodiumModal
             standings={Object.values(room.players).sort((a, b) => b.score - a.score)}
-            onPlayAgain={() => {
-              if (isHost) {
-                handleStartGame();
-              }
-            }}
+            onPlayAgain={handleStartGame}
+            onReturnToLobby={handleReturnToLobby}
+            onExitRoom={handleExitRoom}
             isHost={isHost}
           />
         )}

@@ -109,6 +109,12 @@ export const DisplayBoard: React.FC<DisplayBoardProps> = ({
         </span>
 
         <div className="flex items-center gap-2">
+          {isEliminated && (
+            <span className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-black border-2 bg-purple-950/80 text-purple-300 border-purple-500 animate-pulse">
+              <span>👀</span>
+              <span>SPECTATING</span>
+            </span>
+          )}
           {mode === 'bomb-pass' ? (
             <span className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-black border-2 bg-rose-950/80 text-rose-300 border-rose-500 animate-pulse shadow-[0_0_15px_rgba(239,68,68,0.4)]">
               <span className="text-sm">💣</span>
@@ -152,7 +158,17 @@ export const DisplayBoard: React.FC<DisplayBoardProps> = ({
 
         {status === 'in-game' && (
           <>
-            {mode === 'bomb-pass' && (
+            {isEliminated ? (
+              <div className="flex flex-col items-center gap-1 px-4 py-2 rounded-xl bg-purple-950/70 border-2 border-purple-500/60 text-purple-200 font-mono font-bold text-xs uppercase mb-2 z-10 shadow-retro-sm">
+                <div className="flex items-center gap-2 text-purple-300">
+                  <span className="text-base animate-pulse">👀</span>
+                  <span>SPECTATING: {currentTurnPlayerName || 'Active combatant'} has the bomb!</span>
+                </div>
+                <span className="text-[10px] text-slate-400">
+                  You are spectating live. Watch remaining combatants fight to survive!
+                </span>
+              </div>
+            ) : mode === 'bomb-pass' ? (
               isCurrentTurn ? (
                 <div className="flex flex-col items-center gap-1 px-4 py-2 rounded-xl bg-gradient-to-r from-rose-950/90 via-red-900/90 to-rose-950/90 border-2 border-rose-500 text-rose-200 font-mono font-black text-xs sm:text-sm uppercase animate-pulse mb-2 z-10 shadow-[0_0_20px_rgba(239,68,68,0.5)]">
                   <div className="flex items-center gap-2 text-rose-300">
@@ -175,16 +191,16 @@ export const DisplayBoard: React.FC<DisplayBoardProps> = ({
                   </span>
                 </div>
               )
-            )}
+            ) : null}
 
-            {mode === 'keydash-race' && (
+            {!isEliminated && mode === 'keydash-race' && (
               <div className="flex items-center gap-2 px-3 py-1 rounded-xl bg-amber-500/20 border-2 border-amber-400 text-amber-300 font-mono font-bold text-xs uppercase mb-1.5 z-10 animate-pulse">
                 <span>🏎️</span>
                 <span>SPEEDWAY SPRINT! Type word fast to burst your car ahead with nitro!</span>
               </div>
             )}
 
-            {mode === 'type-or-die' && (
+            {!isEliminated && mode === 'type-or-die' && (
               <div className="flex items-center gap-2 px-3 py-1 rounded-xl bg-orange-950/60 border-2 border-orange-500 text-orange-300 font-mono font-bold text-xs uppercase mb-1.5 z-10 animate-pulse">
                 <span>🌋</span>
                 <span>RISING LAVA! Type the word before time runs out!</span>
@@ -192,7 +208,9 @@ export const DisplayBoard: React.FC<DisplayBoardProps> = ({
             )}
 
             <span className="text-[11px] uppercase font-mono font-extrabold tracking-widest text-slate-400 mb-1 z-10">
-              {mode === 'bomb-pass'
+              {isEliminated
+                ? '👀 TARGET WORD (SPECTATING LIVE MATCH)'
+                : mode === 'bomb-pass'
                 ? isCurrentTurn
                   ? '🔥 TYPE WORD QUICKLY & HIT ENTER TO PASS! 🔥'
                   : `💣 ${currentTurnPlayerName || 'CURRENT PLAYER'} IS TYPING TO PASS...`
@@ -279,7 +297,7 @@ export const DisplayBoard: React.FC<DisplayBoardProps> = ({
             disabled={status !== 'in-game' || isSubmitted || isEliminated || !isCurrentTurn}
             placeholder={
               isEliminated
-                ? '💀 Knocked out (Spectating Arena)'
+                ? '👀 Spectating live match (Out of lives). Enjoy the battle & chat!'
                 : isSubmitted
                 ? mode === 'bomb-pass'
                   ? '💣 Passed the bomb! Stay alert...'

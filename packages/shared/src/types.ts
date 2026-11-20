@@ -54,6 +54,8 @@ export interface RoundResult {
     isCorrect: boolean;
   }[];
   eliminatedPlayerIds: string[];
+  explodedPlayerId?: string;
+  explodedPlayerName?: string;
 }
 
 export interface RoomState {
@@ -114,6 +116,7 @@ export interface ClientToServerEvents {
   'room:list': (callback: (rooms: PublicRoomSummary[]) => void) => void;
   'room:ready': () => void;
   'room:start': () => void;
+  'room:return_to_lobby': () => void;
   'game:typing_status': (isTyping: boolean) => void;
   'game:race_progress': (data: { progressPercent: number; wpm: number; accuracy: number }) => void;
   'game:submit_word': (submission: string, callback: (res: { correct: boolean; scoreDelta: number; message?: string }) => void) => void;
