@@ -20,6 +20,10 @@ export interface Player {
   isHost: boolean;
   isReady: boolean;
   isBot?: boolean;
+  progressPercent?: number;
+  wpm?: number;
+  accuracy?: number;
+  finishRank?: number;
 }
 
 export type GameMode = 'keydash-race' | 'bomb-pass' | 'word-blitz' | 'type-or-die';
@@ -104,11 +108,14 @@ export interface ClientToServerEvents {
   'room:create': (payload: { settings: Omit<RoomSettings, 'roomCode'> & { withBots?: boolean }; player: { nickname: string; avatar: AvatarConfig } }, callback: (res: { success: boolean; roomCode?: string; error?: string }) => void) => void;
   'room:join': (payload: { roomCode: string; password?: string; player: { nickname: string; avatar: AvatarConfig } }, callback: (res: { success: boolean; error?: string }) => void) => void;
   'room:leave': () => void;
+  'room:add_bot': () => void;
+  'room:remove_bot': () => void;
   'room:toggle_bots': () => void;
   'room:list': (callback: (rooms: PublicRoomSummary[]) => void) => void;
   'room:ready': () => void;
   'room:start': () => void;
   'game:typing_status': (isTyping: boolean) => void;
+  'game:race_progress': (data: { progressPercent: number; wpm: number; accuracy: number }) => void;
   'game:submit_word': (submission: string, callback: (res: { correct: boolean; scoreDelta: number; message?: string }) => void) => void;
   'chat:send': (text: string) => void;
 }

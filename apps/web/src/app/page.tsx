@@ -105,13 +105,13 @@ export default function LandingPage() {
             if (res.success) {
               router.push(`/play/${target.code}`);
             } else {
-              handleCreateRoom(targetMode, true);
+              handleCreateRoom(targetMode, false);
             }
           }
         );
       } else {
-        // No room with players found online; create a new room with 4 AI bots ready to play!
-        handleCreateRoom(targetMode, true);
+        // No room with players found online; create a fresh room (no initial bots)
+        handleCreateRoom(targetMode, false);
       }
     });
   };

@@ -69,6 +69,16 @@ io.on('connection', (socket) => {
     roomManager.leaveRoom(socket);
   });
 
+  // Add AI Bot to Lobby
+  socket.on('room:add_bot', () => {
+    roomManager.addBot(socket.id);
+  });
+
+  // Remove AI Bot from Lobby
+  socket.on('room:remove_bot', () => {
+    roomManager.removeBot(socket.id);
+  });
+
   // Toggle AI Bots in Lobby
   socket.on('room:toggle_bots', () => {
     roomManager.toggleBots(socket.id);
@@ -82,6 +92,11 @@ io.on('connection', (socket) => {
   // Typing status change
   socket.on('game:typing_status', (isTyping) => {
     roomManager.setTypingStatus(socket.id, isTyping);
+  });
+
+  // Real-time race progress (KeyDash Speedway)
+  socket.on('game:race_progress', (data) => {
+    roomManager.updateRaceProgress(socket.id, data);
   });
 
   // Word submission (Player hit Enter)
